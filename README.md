@@ -46,7 +46,6 @@ React 상태로 전환하므로 URL과 브라우저 방문 기록은 변경하�
 
 ## GitHub Actions
 
-`fast-demo` 폴더를 저장소 루트로 올리면 push와 pull request에서
-Lint → Typecheck → Test → Build가 실행됩니다. `package-lock.json`을 함께 커밋합니다.
-상위 폴더를 저장소 루트로 사용한다면 workflow를 그 루트의 `.github/workflows`로 옮기고,
-작업 디렉터리와 npm 캐시 경로를 `fast-demo`에 맞게 조정해야 합니다.
+`fast-demo/`가 Git 저장소 루트입니다. 이 폴더에서 Git 및 npm 명령을 실행합니다.
+push와 pull request에서 Lint → Typecheck → Test → Build가 실행됩니다.
+`package-lock.json`을 함께 커밋합니다.
