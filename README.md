@@ -1,6 +1,6 @@
 # fast-demo
 
-React + TypeScript + Vite 기반 오디오 앱입니다. Step 3에서 Firebase 오디오 재생 모달을 추가했습니다.
+React + TypeScript + Vite 기반 오디오 앱입니다. Step 4에서 마이크 녹음과 로컬 미리 듣기를 추가했습니다.
 Tailwind CSS, Firebase Modular SDK, ESLint, Vitest, React Testing Library를 사용합니다.
 
 ## 실행
@@ -58,6 +58,9 @@ npm run build
 - `src/hooks`: 페이지 전환 및 비동기 목록 상태
 - `src/hooks/useAudioPlayer.ts`: HTML5 Audio 상태·이벤트·리소스 관리
 - `src/components/AudioPlayer.tsx`: 반응형 네이티브 dialog 플레이어
+- `src/hooks/useAudioRecorder.ts`: 마이크 권한·녹음·타이머·미리 듣기·리소스 관리
+- `src/components/AudioRecorder.tsx`: 녹음 상태 및 녹음·미리 듣기 컨트롤
+- `src/services/recordingFormat.ts`: 브라우저 MIME 지원 확인과 기본 포맷 폴백
 - `src/services/audioStorage.ts`: Storage 목록·메타데이터·다운로드 URL 조회
 - `src/types`: 공통 타입
 - `src/test`: 테스트 환경 설정
@@ -85,7 +88,28 @@ Play / Pause, 탐색 바, 현재·전체 시간, 재생 종료 후 다시 재생
 재생 성공 여부는 `play()` Promise와 미디어 이벤트로 확인합니다.
 참고: [MDN play()와 자동재생 정책](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play),
 [Firebase 다운로드 URL](https://firebase.google.com/docs/storage/web/download-files).
-녹음 및 업로드는 아직 구현하지 않았습니다.
+Firebase 업로드는 아직 구현하지 않았습니다.
+
+## Record 녹음
+
+Record 탭에서 시작 버튼을 누르면 `getUserMedia({ audio: true })`로 마이크 권한을 요청합니다.
+MediaRecorder로 녹음하고 경과 시간과 녹음 상태를 표시합니다. 종료 버튼을 누르면 마지막
+`dataavailable` 이벤트까지 수집한 후 Blob과 Object URL을 생성합니다.
+미리 듣기 버튼으로 재생·일시정지하고, 재생 종료 후 다시 들을 수 있습니다.
+재녹음 버튼은 기존 녹음과 미리 듣기를 해제하고 새 녹음을 시작합니다.
+
+녹음과 미리 듣기는 브라우저 메모리에서만 관리합니다. 다른 탭으로 이동하거나 페이지를
+떠나면 녹음, 마이크 트랙, 타이머, 이벤트 리스너, 미리 듣기 오디오 및 Object URL을 해제합니다.
+권한 요청 중 페이지를 떠났다가 스트림이 늦게 반환되어도 트랙을 즉시 중지합니다.
+업로드 버튼은 녹음 완료 후 표시되는 비활성 UI이며 서버로 전송하는 코드는 없습니다.
+
+마이크 녹음은 HTTPS 또는 localhost와 브라우저 지원이 필요합니다.
+MediaRecorder 미지원, 권한 거부, 마이크 없음, 장치 사용 오류, 녹음·미리 듣기 오류를 안내합니다.
+`MediaRecorder.isTypeSupported()`로 WebM/Opus, MP4/AAC, Ogg 지원을 순서대로 검사하고,
+적합한 타입이 없거나 지정 타입 생성에 실패하면 브라우저 기본 포맷을 사용합니다.
+Blob에는 실제 Recorder의 MIME 타입을 적용합니다. 브라우저 이름으로 포맷을 추정하지 않습니다.
+참고: [MDN MIME 지원 확인](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/isTypeSupported_static),
+[MDN 마지막 녹음 데이터 이벤트](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/dataavailable_event).
 
 ## 테스트 범위
 
@@ -95,10 +119,25 @@ Storage 및 Firebase 초기화 SDK를 Mock하여 정상 목록, 빈 목록, API 
 플레이어 테스트에서는 HTML5 Audio와 네이티브 dialog를 Mock하여 열기·닫기, 재생·일시정지,
 탐색·시간 표시, 재생 종료·다시 재생, 파일 전환, 리소스 정리, 자동재생 차단과 수동 재시도,
 다운로드·미디어 오류, 늦은 요청 무시 및 React StrictMode 동작을 검증합니다.
+녹음 테스트는 MediaRecorder, MediaDevices, Audio 및 Object URL API를 Mock합니다.
+시작·종료·최종 데이터 수집, 경과 시간, 미리 듣기·종료·재녹음, MIME 포맷 선택·폴백,
+권한 거부·장치 오류·미지원, 중복 요청 방지, 늦게 반환된 스트림, 녹음 오류, 페이지 이동과
+언마운트 시 정리, StrictMode를 검증합니다.
 
 자동 테스트는 실제 Firebase에 연결하지 않습니다. 실제 연결은 `.env`에 프로젝트 설정을 입력하고
 접근 권한을 설정한 뒤 수동으로 확인해야 합니다. 실제 재생은 오디오 파일과 브라우저의 코덱 지원이
 필요합니다. CI에서도 Firebase 설정 없이 Mock 테스트를 실행합니다.
+
+실제 마이크 입력과 모바일 Safari/Chrome의 권한 UI·코덱 동작은 Mock 테스트로 확인할 수 없습니다.
+실제 기기의 HTTPS 환경에서 다음을 수동 확인해야 합니다.
+
+- 마이크 허용·거부·다시 허용, 실제 음성 녹음 및 미리 듣기
+- 선택된 MIME 타입과 최종 Blob의 정상 디코딩
+- 녹음 종료·재녹음·탭 이동 후 시스템 마이크 사용 표시 해제
+- 화면 잠금·백그라운드 이동·전화 또는 오디오 장치 변경 시 녹음 동작
+
+다른 모바일 기기에서는 개발 컴퓨터의 HTTP LAN 주소가 보안 컨텍스트가 아니므로
+마이크 접근이 차단될 수 있습니다. 모바일 검증에는 HTTPS 주소를 사용합니다.
 
 Firebase 패키지의 간접 의존성 `@grpc/grpc-js`는 보안 수정 버전을 사용하도록
 `package.json`의 `overrides`로 지정합니다. 앱은 Firebase App / Storage 모듈만 사용합니다.

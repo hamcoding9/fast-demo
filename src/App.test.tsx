@@ -34,7 +34,7 @@ describe('bottom navigation', () => {
     expect(screen.queryByRole('heading', { name: '나의 오디오' })).not.toBeInTheDocument()
     expect(record).toHaveAttribute('aria-current', 'page')
     expect(play).not.toHaveAttribute('aria-current')
-    expect(screen.getByRole('button', { name: '녹음 시작 (준비 중)' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '녹음 시작' })).toBeDisabled() // jsdom has no MediaRecorder.
     await user.click(play)
     expect(screen.getByRole('heading', { name: '나의 오디오' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '새로운 녹음' })).not.toBeInTheDocument()
