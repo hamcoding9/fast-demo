@@ -6,14 +6,14 @@ import { listAudioFiles } from '../services/audioStorage'
 import type { AudioFile } from '../types/audio'
 import { AudioLibrary } from './AudioLibrary'
 
-vi.mock('../services/audioStorage', () => ({ listAudioFiles: vi.fn() }))
+vi.mock('../services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn() }))
 const audio: AudioFile = { id: 'recordings/memo.wav', name: 'memo.wav', uploadedAt: '2026-10-11T12:00:00Z' }
 beforeEach(() => {
   vi.mocked(listAudioFiles).mockReset()
 })
 
 describe('audio library states and refresh', () => {
-  it('shows loading until files arrive, then displays name, date and disabled play icon', async () => {
+  it('shows loading until files arrive, then displays name, date and enabled play icon', async () => {
     let resolve!: (files: AudioFile[]) => void
     vi.mocked(listAudioFiles).mockReturnValue(new Promise((done) => { resolve = done }))
     const { container } = render(<AudioLibrary />)
@@ -23,7 +23,7 @@ describe('audio library states and refresh', () => {
     expect(await screen.findByRole('heading', { name: 'memo.wav' })).toBeInTheDocument()
     expect(container.querySelector('time')).toHaveAttribute('datetime', audio.uploadedAt)
     expect(container.querySelector('time')).toHaveTextContent(/2026/)
-    expect(screen.getByRole('button', { name: 'memo.wav 재생 (준비 중)' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'memo.wav 재생' })).toBeEnabled()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 

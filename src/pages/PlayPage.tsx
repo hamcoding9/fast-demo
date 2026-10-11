@@ -11,9 +11,9 @@ export function PlayPage() {
       <aside aria-labelledby="player-title" className="rounded-3xl border border-indigo-100 bg-indigo-50/60 p-6 text-center">
         <span className="mx-auto mb-5 flex size-12 items-center justify-center rounded-2xl bg-white text-indigo-600"><Icon name="headphones" /></span>
         <h2 id="player-title" className="font-semibold">당신의 순간을 다시 듣다</h2>
-        <p className="mt-2 text-xs leading-5 text-slate-500">오디오 플레이어가 이곳에 표시됩니다.</p>
+        <p className="mt-2 text-xs leading-5 text-slate-500">목록에서 오디오를 선택하고 재생해보세요.</p>
         <div className="my-5"><Waveform /></div>
-        <span className="rounded-full bg-white px-3 py-1.5 text-xs font-medium text-indigo-700">재생 기능 준비 중</span>
+        <span className="rounded-full bg-white px-3 py-1.5 text-xs font-medium text-indigo-700">당신만의 오디오 플레이어</span>
       </aside>
     </div>
   </>

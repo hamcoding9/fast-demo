@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getApps, initializeApp, type FirebaseApp } from 'firebase/app'
-import { getMetadata, getStorage, listAll, ref, type FirebaseStorage, type FullMetadata, type StorageReference } from 'firebase/storage'
+import { getDownloadURL, getMetadata, getStorage, listAll, ref, type FirebaseStorage, type FullMetadata, type StorageReference } from 'firebase/storage'
 import { FirebaseNotConfiguredError, getFirebaseStorage } from '../config/firebase'
-import { listAudioFiles } from './audioStorage'
+import { getAudioDownloadUrl, listAudioFiles } from './audioStorage'
 
 vi.mock('firebase/app', () => ({ getApps: vi.fn(), initializeApp: vi.fn() }))
-vi.mock('firebase/storage', () => ({ getStorage: vi.fn(), ref: vi.fn(), listAll: vi.fn(), getMetadata: vi.fn() }))
+vi.mock('firebase/storage', () => ({ getStorage: vi.fn(), ref: vi.fn(), listAll: vi.fn(), getMetadata: vi.fn(), getDownloadURL: vi.fn() }))
 
 const storage = {} as FirebaseStorage
 const app = { name: 'fast-demo' } as FirebaseApp
@@ -106,5 +106,25 @@ describe('listAudioFiles', () => {
     vi.mocked(listAll).mockResolvedValue({ items: [folder], prefixes: [] })
     vi.mocked(getMetadata).mockRejectedValue(new Error('storage/object-not-found'))
     await expect(listAudioFiles()).rejects.toThrow('storage/object-not-found')
+  })
+})
+
+describe('getAudioDownloadUrl', () => {
+  it('retrieves the download URL of the selected Storage path', async () => {
+    vi.mocked(getDownloadURL).mockResolvedValue('https://audio.test/memo.wav')
+    await expect(getAudioDownloadUrl('recordings/memo.wav')).resolves.toBe('https://audio.test/memo.wav')
+    expect(ref).toHaveBeenCalledWith(storage, 'recordings/memo.wav')
+    expect(getDownloadURL).toHaveBeenCalledWith(folder)
+  })
+
+  it('propagates a download URL API failure', async () => {
+    vi.mocked(getDownloadURL).mockRejectedValue(new Error('storage/object-not-found'))
+    await expect(getAudioDownloadUrl('recordings/missing.wav')).rejects.toThrow('storage/object-not-found')
+  })
+
+  it('does not request a URL without Firebase configuration', async () => {
+    vi.stubEnv('VITE_FIREBASE_API_KEY', '')
+    await expect(getAudioDownloadUrl('recordings/memo.wav')).rejects.toThrow(FirebaseNotConfiguredError)
+    expect(getDownloadURL).not.toHaveBeenCalled()
   })
 })

@@ -5,7 +5,7 @@ import { FirebaseNotConfiguredError } from './config/firebase'
 import { listAudioFiles } from './services/audioStorage'
 import App from './App'
 
-vi.mock('./services/audioStorage', () => ({ listAudioFiles: vi.fn() }))
+vi.mock('./services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn() }))
 beforeEach(() => {
   vi.mocked(listAudioFiles).mockReset().mockResolvedValue([
     { id: 'recordings/one.wav', name: 'one.wav', uploadedAt: '2026-10-11T12:00:00Z' },
@@ -15,13 +15,13 @@ beforeEach(() => {
 })
 
 describe('bottom navigation', () => {
-  it('opens Play by default and displays audio files with disabled play buttons', async () => {
+  it('opens Play by default and displays audio files with enabled play buttons', async () => {
     render(<App />)
     expect(screen.getByRole('heading', { name: '나의 오디오' })).toBeInTheDocument()
     const navigation = screen.getByRole('navigation', { name: '메인 내비게이션' })
     expect(within(navigation).getByRole('button', { name: 'Play' })).toHaveAttribute('aria-current', 'page')
     expect(await screen.findAllByRole('listitem')).toHaveLength(3)
-    screen.getAllByRole('button', { name: /재생 \(준비 중\)/ }).forEach((button) => expect(button).toBeDisabled())
+    screen.getAllByRole('button', { name: /\.wav 재생$/ }).forEach((button) => expect(button).toBeEnabled())
   })
 
   it('switches Play → Record → Play and updates the current page', async () => {
@@ -46,9 +46,7 @@ describe('bottom navigation', () => {
     const user = userEvent.setup()
     render(<App />)
     await screen.findAllByRole('listitem')
-    await user.tab() // Skip link
-    await user.tab() // Refresh
-    await user.tab() // Play; disabled audio buttons are skipped
+    screen.getByRole('button', { name: 'Play' }).focus()
     expect(screen.getByRole('button', { name: 'Play' })).toHaveFocus()
     await user.tab()
     expect(screen.getByRole('button', { name: 'Record' })).toHaveFocus()

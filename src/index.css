@@ -34,6 +34,11 @@ button:disabled { cursor: not-allowed; }
 }
 .skip-link { position: fixed; top: -100px; left: 1rem; z-index: 30; padding: 1rem; background: white; }
 .skip-link:focus { top: 1rem; }
+.audio-player-modal {
+  margin: auto;
+  max-height: calc(100dvh - 2rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+.audio-player-modal::backdrop { background: rgb(15 23 42 / 50%); backdrop-filter: blur(4px); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }

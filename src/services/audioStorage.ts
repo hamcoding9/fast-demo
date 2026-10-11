@@ -1,8 +1,12 @@
-import { getMetadata, listAll, ref } from 'firebase/storage'
+import { getDownloadURL, getMetadata, listAll, ref } from 'firebase/storage'
 import { getFirebaseStorage } from '../config/firebase'
 import type { AudioFile } from '../types/audio'
 
 const audioExtension = /\.(mp3|wav|m4a|aac|ogg|oga|opus|webm|flac|aif|aiff|mp4)$/i
+
+export async function getAudioDownloadUrl(path: string): Promise<string> {
+  return getDownloadURL(ref(getFirebaseStorage(), path))
+}
 
 export async function listAudioFiles(): Promise<AudioFile[]> {
   const storage = getFirebaseStorage()
