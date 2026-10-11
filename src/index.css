@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@layer components {
+  .library-message {
+    @apply rounded-2xl border border-slate-200 bg-white p-6 text-sm leading-7 text-slate-600;
+  }
+}
+
 :root {
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: #172033;

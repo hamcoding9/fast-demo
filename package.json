@@ -12,6 +12,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "firebase": "^13.0.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
@@ -39,5 +40,8 @@
   },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.6"
   }
 }

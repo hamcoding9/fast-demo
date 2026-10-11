@@ -1,15 +1,26 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { FirebaseNotConfiguredError } from './config/firebase'
+import { listAudioFiles } from './services/audioStorage'
 import App from './App'
 
+vi.mock('./services/audioStorage', () => ({ listAudioFiles: vi.fn() }))
+beforeEach(() => {
+  vi.mocked(listAudioFiles).mockReset().mockResolvedValue([
+    { id: 'recordings/one.wav', name: 'one.wav', uploadedAt: '2026-10-11T12:00:00Z' },
+    { id: 'recordings/two.wav', name: 'two.wav', uploadedAt: '2026-10-10T12:00:00Z' },
+    { id: 'recordings/three.wav', name: 'three.wav', uploadedAt: '2026-10-09T12:00:00Z' },
+  ])
+})
+
 describe('bottom navigation', () => {
-  it('opens Play by default and displays disabled audio placeholders', () => {
+  it('opens Play by default and displays audio files with disabled play buttons', async () => {
     render(<App />)
     expect(screen.getByRole('heading', { name: '나의 오디오' })).toBeInTheDocument()
     const navigation = screen.getByRole('navigation', { name: '메인 내비게이션' })
     expect(within(navigation).getByRole('button', { name: 'Play' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+    expect(await screen.findAllByRole('listitem')).toHaveLength(3)
     screen.getAllByRole('button', { name: /재생 \(준비 중\)/ }).forEach((button) => expect(button).toBeDisabled())
   })
 
@@ -34,7 +45,9 @@ describe('bottom navigation', () => {
   it('supports keyboard activation of both navigation buttons', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await screen.findAllByRole('listitem')
     await user.tab() // Skip link
+    await user.tab() // Refresh
     await user.tab() // Play; disabled audio buttons are skipped
     expect(screen.getByRole('button', { name: 'Play' })).toHaveFocus()
     await user.tab()
@@ -44,5 +57,16 @@ describe('bottom navigation', () => {
     await user.tab({ shift: true })
     await user.keyboard(' ')
     expect(screen.getByRole('heading', { name: '나의 오디오' })).toBeInTheDocument()
+  })
+
+  it('keeps navigation usable without Firebase configuration', async () => {
+    const user = userEvent.setup()
+    vi.mocked(listAudioFiles).mockRejectedValue(new FirebaseNotConfiguredError())
+    render(<App />)
+    expect(await screen.findByText(/Firebase 설정이 필요합니다/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Record' }))
+    expect(screen.getByRole('heading', { name: '새로운 녹음' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Play' }))
+    expect(await screen.findByText(/Firebase 설정이 필요합니다/)).toBeInTheDocument()
   })
 })
