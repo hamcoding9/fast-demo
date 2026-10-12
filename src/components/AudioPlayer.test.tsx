@@ -9,7 +9,7 @@ import App from '../App'
 import { AudioLibrary } from './AudioLibrary'
 import { AudioPlayer } from './AudioPlayer'
 
-vi.mock('../services/audioStorage', () => ({ getAudioDownloadUrl: vi.fn(), listAudioFiles: vi.fn() }))
+vi.mock('../services/audioStorage', () => ({ getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn(), listAudioFiles: vi.fn() }))
 const files: AudioFile[] = [
   { id: 'recordings/one.wav', name: 'one.wav', uploadedAt: '2026-10-11T12:00:00Z' },
   { id: 'recordings/two.mp3', name: 'two.mp3', uploadedAt: '2026-10-10T12:00:00Z' },

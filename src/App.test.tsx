@@ -5,7 +5,7 @@ import { FirebaseNotConfiguredError } from './config/firebase'
 import { listAudioFiles } from './services/audioStorage'
 import App from './App'
 
-vi.mock('./services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn() }))
+vi.mock('./services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
 beforeEach(() => {
   vi.mocked(listAudioFiles).mockReset().mockResolvedValue([
     { id: 'recordings/one.wav', name: 'one.wav', uploadedAt: '2026-10-11T12:00:00Z' },

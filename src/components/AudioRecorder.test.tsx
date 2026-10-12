@@ -7,7 +7,7 @@ import { installMediaMocks, type MockAudio } from '../test/mediaMocks'
 import { installRecorderMocks } from '../test/recorderMocks'
 import { AudioRecorder } from './AudioRecorder'
 
-vi.mock('../services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn() }))
+vi.mock('../services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
 let mocks: ReturnType<typeof installRecorderMocks>
 let previews: MockAudio[]
 beforeEach(() => {
@@ -23,7 +23,7 @@ afterEach(() => {
 })
 
 describe('recorder UI', () => {
-  it('shows recording status, stop, preview, re-record and disabled upload controls', async () => {
+  it('shows recording status, stop, preview, re-record and enabled upload controls', async () => {
     const user = userEvent.setup()
     render(<AudioRecorder />)
     expect(screen.getByRole('status')).toHaveTextContent('녹음 준비')
@@ -36,10 +36,10 @@ describe('recorder UI', () => {
     expect(previews[0].play).toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: '미리 듣기 일시정지' }))
     expect(previews[0].pause).toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: '업로드 (준비 중)' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '업로드' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: '재녹음' }))
     expect(screen.getByRole('status')).toHaveTextContent('녹음 중')
-    expect(screen.queryByRole('button', { name: '업로드 (준비 중)' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '업로드' })).not.toBeInTheDocument()
     expect(mocks.revokeObjectURL).toHaveBeenCalledWith('blob:recording-1')
   })
 

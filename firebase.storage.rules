@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Public DEMO ONLY. Replace with authenticated, owner-scoped rules for production.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /recordings/{allPaths=**} {
+      allow get, list: if true;
+      allow create: if request.resource.size > 0
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('(audio/(webm|mp4|x-m4a|ogg|wav|x-wav|mpeg|mp3|aac|flac)|video/webm)(;.*)?');
+      allow update, delete: if false;
+    }
+  }
+}

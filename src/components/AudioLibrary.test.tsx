@@ -6,7 +6,7 @@ import { listAudioFiles } from '../services/audioStorage'
 import type { AudioFile } from '../types/audio'
 import { AudioLibrary } from './AudioLibrary'
 
-vi.mock('../services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn() }))
+vi.mock('../services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
 const audio: AudioFile = { id: 'recordings/memo.wav', name: 'memo.wav', uploadedAt: '2026-10-11T12:00:00Z' }
 beforeEach(() => {
   vi.mocked(listAudioFiles).mockReset()

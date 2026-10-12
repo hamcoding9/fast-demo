@@ -1,4 +1,5 @@
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
+import { useAudioUpload } from '../hooks/useAudioUpload'
 import type { RecordingStatus } from '../types/recording'
 import { Icon } from './Icon'
 
@@ -9,6 +10,7 @@ const labels: Record<RecordingStatus, string> = {
 
 export function AudioRecorder() {
   const recorder = useAudioRecorder()
+  const upload = useAudioUpload(recorder.recording)
   const time = `${Math.floor(recorder.seconds / 60).toString().padStart(2, '0')}:${(recorder.seconds % 60).toString().padStart(2, '0')}`
   return (
     <section aria-labelledby="recorder-title" className="mx-auto flex max-w-2xl flex-col items-center rounded-3xl border border-slate-200 bg-white px-5 py-10 text-center sm:py-14">
@@ -28,15 +30,16 @@ export function AudioRecorder() {
             <button type="button" onClick={() => void recorder.togglePreview()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 font-semibold text-white hover:bg-indigo-700"><Icon name={recorder.isPreviewPlaying ? 'pause' : 'play'} />{recorder.isPreviewPlaying ? '미리 듣기 일시정지' : '미리 듣기'}</button>
             {recorder.previewError && <p role="alert" className="mt-3 text-sm leading-6 text-red-700">{recorder.previewError}</p>}
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => void recorder.reRecord()} className="min-h-12 rounded-xl border border-slate-200 px-3 text-sm font-semibold hover:bg-slate-50">재녹음</button>
-              <button type="button" disabled aria-describedby="upload-note" className="min-h-12 rounded-xl bg-slate-100 px-3 text-sm font-semibold text-slate-400">업로드 (준비 중)</button>
+              <button type="button" disabled={upload.status === 'uploading'} onClick={() => void recorder.reRecord()} className="min-h-12 rounded-xl border border-slate-200 px-3 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50">재녹음</button>
+              <button type="button" onClick={upload.upload} disabled={upload.status === 'uploading' || upload.status === 'success'} className="min-h-12 rounded-xl bg-indigo-50 px-3 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50">{upload.status === 'uploading' ? '업로드 중' : upload.status === 'success' ? '업로드 완료' : '업로드'}</button>
             </div>
-            <p id="upload-note" className="mt-3 text-xs leading-5 text-slate-500">업로드 기능은 다음 단계에서 제공됩니다.</p>
+            {upload.status === 'uploading' && <div className="mt-4"><progress aria-label="업로드 진행률" value={upload.progress} max="100" className="h-2 w-full accent-indigo-600" /><p className="mt-1 text-xs tabular-nums text-slate-500">{upload.progress}%</p></div>}
+            {upload.message && <p role={upload.status === 'error' ? 'alert' : 'status'} className={`mt-3 text-sm leading-6 ${upload.status === 'error' ? 'text-red-700' : 'text-teal-700'}`}>{upload.message}</p>}
           </div>
           : <button type="button" onClick={() => void recorder.startRecording()} disabled={['requesting', 'stopping', 'unsupported'].includes(recorder.status)} aria-label="녹음 시작" className="flex size-20 items-center justify-center rounded-full border-8 border-indigo-50 bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-200 disabled:text-indigo-400"><Icon name="record" className="size-7" /></button>}
       <p className="mt-6 max-w-sm text-xs leading-6 text-slate-500">{recorder.recording
-        ? '녹음은 이 페이지의 메모리에만 보관됩니다. 재녹음하거나 페이지를 떠나면 삭제됩니다.'
-        : '시작 버튼을 누르면 마이크 사용 권한을 요청합니다. 녹음 파일은 서버에 전송되지 않습니다.'}</p>
+        ? '업로드 전 녹음은 메모리에만 보관됩니다. 페이지를 떠나면 로컬 녹음과 진행 중인 업로드가 정리됩니다.'
+        : '시작 버튼을 누르면 마이크 사용 권한을 요청합니다. 업로드 버튼을 누를 때만 서버로 전송됩니다.'}</p>
     </section>
   )
 }
