@@ -17,20 +17,20 @@ describe('audio library states and refresh', () => {
     let resolve!: (files: AudioFile[]) => void
     vi.mocked(listAudioFiles).mockReturnValue(new Promise((done) => { resolve = done }))
     const { container } = render(<AudioLibrary />)
-    expect(screen.getByRole('status')).toHaveTextContent('불러오는 중')
-    expect(screen.getByRole('button', { name: '새로고침' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('Loading')
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled()
     resolve([audio])
     expect(await screen.findByRole('heading', { name: 'memo.wav' })).toBeInTheDocument()
     expect(container.querySelector('time')).toHaveAttribute('datetime', audio.uploadedAt)
     expect(container.querySelector('time')).toHaveTextContent(/2026/)
-    expect(screen.getByRole('button', { name: 'memo.wav 재생' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Play memo.wav' })).toBeEnabled()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('shows an empty state', async () => {
     vi.mocked(listAudioFiles).mockResolvedValue([])
     render(<AudioLibrary />)
-    expect(await screen.findByText(/저장된 오디오가 없습니다/)).toBeInTheDocument()
+    expect(await screen.findByText(/No recordings yet/)).toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
 
@@ -38,8 +38,8 @@ describe('audio library states and refresh', () => {
     const user = userEvent.setup()
     vi.mocked(listAudioFiles).mockRejectedValueOnce(new Error('storage/unauthorized')).mockResolvedValueOnce([audio])
     render(<AudioLibrary />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('불러오지 못했습니다')
-    await user.click(screen.getByRole('button', { name: '새로고침' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load')
+    await user.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(await screen.findByRole('heading', { name: 'memo.wav' })).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(listAudioFiles).toHaveBeenCalledTimes(2)
@@ -48,9 +48,9 @@ describe('audio library states and refresh', () => {
   it('shows setup guidance when Firebase is not configured', async () => {
     vi.mocked(listAudioFiles).mockRejectedValue(new FirebaseNotConfiguredError())
     render(<AudioLibrary />)
-    expect(await screen.findByText(/Firebase 설정이 필요합니다/)).toHaveTextContent('.env')
+    expect(await screen.findByText(/Firebase configuration is required/)).toHaveTextContent('.env')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '새로고침' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeEnabled()
   })
 
   it('refreshes the displayed files with a new Storage query', async () => {
@@ -58,8 +58,8 @@ describe('audio library states and refresh', () => {
     vi.mocked(listAudioFiles).mockResolvedValueOnce([audio]).mockResolvedValueOnce([])
     render(<AudioLibrary />)
     await screen.findByRole('heading', { name: 'memo.wav' })
-    await user.click(screen.getByRole('button', { name: '새로고침' }))
-    expect(await screen.findByText(/저장된 오디오가 없습니다/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Refresh' }))
+    expect(await screen.findByText(/No recordings yet/)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'memo.wav' })).not.toBeInTheDocument()
     expect(listAudioFiles).toHaveBeenCalledTimes(2)
   })

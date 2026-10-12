@@ -93,15 +93,15 @@ describe('useAudioRecorder', () => {
     const { result } = renderHook(useAudioRecorder)
     await act(async () => result.current.startRecording())
     expect(result.current.status).toBe('error')
-    expect(result.current.error).toContain('마이크 권한이 거부')
+    expect(result.current.error).toContain('Microphone access was denied')
     expect(mocks.instances).toHaveLength(0)
     await act(async () => result.current.startRecording())
     expect(result.current.status).toBe('recording')
   })
 
   it.each([
-    ['NotFoundError', '마이크를 찾을 수 없습니다'],
-    ['NotReadableError', '다른 앱의 마이크'],
+    ['NotFoundError', 'No microphone was found'],
+    ['NotReadableError', 'another app is using it'],
   ])('handles %s', async (name, message) => {
     mocks.getUserMedia.mockRejectedValue(new DOMException('Microphone error', name))
     const { result } = renderHook(useAudioRecorder)
@@ -220,7 +220,7 @@ describe('useAudioRecorder', () => {
       mocks.instances[0].dispatchEvent(new Event('stop'))
     })
     act(() => result.current.stopRecording())
-    expect(result.current.error).toContain('녹음된 데이터가 없습니다')
+    expect(result.current.error).toContain('No audio was captured')
     expect(mocks.createObjectURL).not.toHaveBeenCalled()
   })
 
@@ -229,7 +229,7 @@ describe('useAudioRecorder', () => {
     previews[0].play.mockRejectedValueOnce(new DOMException('Blocked', 'NotAllowedError'))
     await act(async () => result.current.togglePreview())
     expect(result.current.isPreviewPlaying).toBe(false)
-    expect(result.current.previewError).toContain('미리 듣기를 시작하지 못했습니다')
+    expect(result.current.previewError).toContain('Unable to start the preview')
     await act(async () => result.current.togglePreview())
     expect(result.current.isPreviewPlaying).toBe(true)
     expect(result.current.previewError).toBeNull()

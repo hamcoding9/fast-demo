@@ -56,7 +56,7 @@ describe('Firebase initialization', () => {
 
   it('handles a completely empty Firebase configuration', async () => {
     requiredEnv.forEach((key) => vi.stubEnv(key, ''))
-    await expect(listAudioFiles()).rejects.toThrow('Firebase 설정이 필요합니다')
+    await expect(listAudioFiles()).rejects.toThrow('Firebase configuration is required')
     expect(listAll).not.toHaveBeenCalled()
   })
 })
@@ -209,9 +209,9 @@ describe('uploadAudioRecording', () => {
   })
 
   it('rejects empty, oversized and unsupported files before invoking the SDK', () => {
-    expect(() => uploadAudioRecording(new Blob([], { type: 'audio/webm' }), vi.fn())).toThrow('빈 녹음')
+    expect(() => uploadAudioRecording(new Blob([], { type: 'audio/webm' }), vi.fn())).toThrow('Empty recordings')
     expect(() => uploadAudioRecording(new Blob([new Uint8Array(MAX_RECORDING_BYTES + 1)], { type: 'audio/webm' }), vi.fn())).toThrow('10 MiB')
-    expect(() => uploadAudioRecording(new Blob(['text'], { type: 'text/plain' }), vi.fn())).toThrow('이 녹음 형식')
+    expect(() => uploadAudioRecording(new Blob(['text'], { type: 'text/plain' }), vi.fn())).toThrow('This recording format')
     expect(uploadBytesResumable).not.toHaveBeenCalled()
   })
 

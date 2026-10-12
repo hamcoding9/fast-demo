@@ -3,7 +3,7 @@ import { getStorage } from 'firebase/storage'
 
 export class FirebaseNotConfiguredError extends Error {
   constructor() {
-    super('Firebase 설정이 필요합니다. .env.example을 참고해 .env를 설정하고 개발 서버를 다시 시작하세요.')
+    super('Firebase configuration is required. Use .env.example to configure .env, then restart the development server.')
     this.name = 'FirebaseNotConfiguredError'
   }
 }

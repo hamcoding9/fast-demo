@@ -17,9 +17,9 @@ const initialState: UploadState = { blob: null, status: 'idle', progress: 0, mes
 function errorMessage(error: unknown) {
   if (error instanceof FirebaseNotConfiguredError || error instanceof AudioUploadValidationError) return error.message
   const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null
-  if (code === 'storage/unauthorized') return '업로드 권한이 없습니다. Storage Rules의 recordings/ 생성 권한을 확인하세요. (storage/unauthorized)'
-  if (code === 'storage/canceled') return '업로드가 취소되었습니다. 다시 시도하세요.'
-  return '업로드하지 못했습니다. 네트워크와 Firebase Storage 설정을 확인한 뒤 다시 시도하세요.'
+  if (code === 'storage/unauthorized') return 'Upload permission denied. Check that Storage Rules allow creating files in recordings/. (storage/unauthorized)'
+  if (code === 'storage/canceled') return 'Upload canceled. Please try again.'
+  return 'Upload failed. Check your network connection and Firebase Storage configuration, then try again.'
 }
 
 export function useAudioUpload(recording: RecordedAudio | null) {
@@ -55,7 +55,7 @@ export function useAudioUpload(recording: RecordedAudio | null) {
       request.operation.promise.then(() => {
         if (active.current !== request) return
         active.current = null
-        setState({ blob, status: 'success', progress: 100, message: '업로드가 완료되었습니다. Play 탭에서 새 오디오를 확인하세요.' })
+        setState({ blob, status: 'success', progress: 100, message: 'Upload complete. Open the Play tab to find your new recording.' })
       }, fail)
     } catch (error) { fail(error) }
   }

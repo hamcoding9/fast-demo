@@ -9,7 +9,7 @@ FAST Demo provides two mobile-friendly screens:
 - **Play** lists audio files from `recordings/`, displays file names and upload dates, and opens an accessible audio player modal.
 - **Record** captures microphone audio, shows a timer, provides a local preview, and uploads completed recordings to Firebase Storage.
 
-The app uses browser media APIs directly. No audio playback or recording library is required. The interface is currently in Korean; this documentation is in English.
+The app uses browser media APIs directly. No audio playback or recording library is required. The interface, accessibility labels, dates, messages, and documentation are in English.
 
 ## Key Features
 

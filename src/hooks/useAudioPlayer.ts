@@ -43,10 +43,10 @@ export function useAudioPlayer(fileId: string) {
           setState((previous) => ({ ...previous, isStarting: false, isPlaying: false }))
         } else if (name === 'NotAllowedError') {
           setState((previous) => ({ ...previous, isStarting: false, isPlaying: false,
-            message: '브라우저가 자동재생을 차단했습니다. 재생 버튼을 눌러 시작하세요.' }))
+            message: 'Your browser blocked autoplay. Press Play to start listening.' }))
         } else {
           setState((previous) => ({ ...previous, status: 'error', isStarting: false, isPlaying: false,
-            message: '오디오를 재생할 수 없습니다. 파일 형식과 네트워크 연결을 확인하세요.' }))
+            message: 'Unable to play this audio. Check the file format and your network connection.' }))
         }
       }
     }
@@ -71,7 +71,7 @@ export function useAudioPlayer(fileId: string) {
     function onError() {
       ++playRequest
       setState((previous) => ({ ...previous, status: 'error', isPlaying: false, isStarting: false,
-        message: '오디오를 불러올 수 없습니다. 파일 형식과 네트워크 연결을 확인하세요.' }))
+        message: 'Unable to load this audio. Check the file format and your network connection.' }))
     }
 
     const listeners: [string, () => void][] = [
@@ -105,7 +105,7 @@ export function useAudioPlayer(fileId: string) {
     }).catch(() => {
       if (disposed) return
       setState((previous) => ({ ...previous, status: 'error',
-        message: '오디오 파일을 불러오지 못했습니다. Storage 접근 권한과 파일 존재 여부를 확인하세요.' }))
+        message: 'Unable to load the audio file. Check Storage permissions and confirm the file still exists.' }))
     })
 
     return () => {

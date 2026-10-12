@@ -10,11 +10,11 @@ const extensions: Record<string, string> = {
 export class AudioUploadValidationError extends Error {}
 
 export function recordingUploadFormat(blob: Blob) {
-  if (blob.size === 0) throw new AudioUploadValidationError('빈 녹음 파일은 업로드할 수 없습니다.')
-  if (blob.size > MAX_RECORDING_BYTES) throw new AudioUploadValidationError('녹음 파일은 10 MiB 이하만 업로드할 수 있습니다.')
+  if (blob.size === 0) throw new AudioUploadValidationError('Empty recordings cannot be uploaded.')
+  if (blob.size > MAX_RECORDING_BYTES) throw new AudioUploadValidationError('Recordings must be 10 MiB or smaller to upload.')
   const contentType = blob.type
   const extension = extensions[contentType.split(';')[0].trim().toLowerCase()]
-  if (!extension) throw new AudioUploadValidationError('이 녹음 형식은 업로드할 수 없습니다. 지원되는 오디오 형식으로 다시 녹음해주세요.')
+  if (!extension) throw new AudioUploadValidationError('This recording format cannot be uploaded. Record again in a supported audio format.')
   return { contentType, extension }
 }
 

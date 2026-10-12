@@ -8,7 +8,7 @@ export default function App() {
   const { activePage, navigate } = useNavigation()
   return (
     <div className="app-shell">
-      <a href="#main-content" className="skip-link">본문으로 건너뛰기</a>
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between border-b border-slate-200 py-6">
         <div className="flex items-center gap-3">
           <span className="flex size-10 items-center justify-center rounded-xl bg-indigo-600 text-white"><Icon name="wave" /></span>

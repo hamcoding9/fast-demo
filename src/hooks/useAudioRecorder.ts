@@ -34,7 +34,7 @@ function supported() {
 function initialState(): RecorderState {
   return {
     status: supported() ? 'idle' : 'unsupported', seconds: 0, recording: null,
-    error: supported() ? null : '이 환경에서는 마이크 녹음을 지원하지 않습니다. 최신 브라우저에서 HTTPS 또는 localhost로 접속하세요.',
+    error: supported() ? null : 'Microphone recording is not supported in this environment. Use a recent browser over HTTPS or localhost.',
     isPreviewPlaying: false, previewError: null,
   }
 }
@@ -71,10 +71,10 @@ function releasePreview(preview: Preview | null) {
 }
 function microphoneError(error: unknown) {
   const name = error instanceof Error || error instanceof DOMException ? error.name : ''
-  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') return '마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 사용을 허용한 뒤 다시 시도하세요.'
-  if (name === 'NotFoundError') return '사용 가능한 마이크를 찾을 수 없습니다. 마이크 연결을 확인하세요.'
-  if (name === 'NotReadableError') return '마이크를 사용할 수 없습니다. 다른 앱의 마이크 사용 여부를 확인하세요.'
-  return '녹음을 시작하지 못했습니다. 마이크 연결과 브라우저 지원 여부를 확인한 뒤 다시 시도하세요.'
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') return 'Microphone access was denied. Allow microphone access in your browser settings, then try again.'
+  if (name === 'NotFoundError') return 'No microphone was found. Check that a microphone is connected.'
+  if (name === 'NotReadableError') return 'The microphone is unavailable. Check whether another app is using it.'
+  return 'Unable to start recording. Check your microphone connection and browser support, then try again.'
 }
 
 export function useAudioRecorder() {
@@ -144,7 +144,7 @@ export function useAudioRecorder() {
         sessionRef.current = null
         busy.current = false
         releaseSession(session)
-        setState((previous) => ({ ...previous, status: 'error', error: '녹음 중 오류가 발생했습니다. 다시 녹음해주세요.' }))
+        setState((previous) => ({ ...previous, status: 'error', error: 'An error occurred while recording. Please record again.' }))
       }
       function onStop() {
         if (!active()) return
@@ -155,7 +155,7 @@ export function useAudioRecorder() {
         busy.current = false
         releaseSession(session)
         if (!blob.size) {
-          setState((previous) => ({ ...previous, status: 'error', seconds, error: '녹음된 데이터가 없습니다. 다시 녹음해주세요.' }))
+          setState((previous) => ({ ...previous, status: 'error', seconds, error: 'No audio was captured. Please record again.' }))
           return
         }
         let url: string | null = null
@@ -166,7 +166,7 @@ export function useAudioRecorder() {
           const previewActive = () => mounted.current && previewRef.current === preview
           const onPlay = () => { if (previewActive()) setState((previous) => ({ ...previous, isPreviewPlaying: true })) }
           const onPause = () => { if (previewActive()) setState((previous) => ({ ...previous, isPreviewPlaying: false })) }
-          const onMediaError = () => { if (previewActive()) setState((previous) => ({ ...previous, isPreviewPlaying: false, previewError: '녹음 파일을 재생할 수 없습니다. 다시 녹음하거나 다른 브라우저를 사용해보세요.' })) }
+          const onMediaError = () => { if (previewActive()) setState((previous) => ({ ...previous, isPreviewPlaying: false, previewError: 'Unable to play the recording. Record again or try another browser.' })) }
           const listeners: [string, () => void][] = [['play', onPlay], ['pause', onPause], ['ended', onPause], ['error', onMediaError]]
           listeners.forEach(([event, listener]) => audio.addEventListener(event, listener))
           preview.detach = () => listeners.forEach(([event, listener]) => audio.removeEventListener(event, listener))
@@ -179,7 +179,7 @@ export function useAudioRecorder() {
           if (previewRef.current) releasePreview(previewRef.current)
           else if (url) URL.revokeObjectURL(url)
           previewRef.current = null
-          setState((previous) => ({ ...previous, status: 'error', seconds, error: '녹음 미리 듣기를 준비하지 못했습니다. 다시 시도하세요.' }))
+          setState((previous) => ({ ...previous, status: 'error', seconds, error: 'Unable to prepare the recording preview. Please try again.' }))
         }
       }
 
@@ -217,7 +217,7 @@ export function useAudioRecorder() {
       sessionRef.current = null
       busy.current = false
       releaseSession(session)
-      setState((previous) => ({ ...previous, status: 'error', error: '녹음을 종료하지 못했습니다. 다시 시도하세요.' }))
+      setState((previous) => ({ ...previous, status: 'error', error: 'Unable to stop recording. Please try again.' }))
     }
   }
 
@@ -235,7 +235,7 @@ export function useAudioRecorder() {
       }
     } catch {
       if (mounted.current && previewRef.current === preview && request === preview.playRequest) {
-        setState((previous) => ({ ...previous, isPreviewPlaying: false, previewError: '미리 듣기를 시작하지 못했습니다. 재생 버튼을 다시 누르거나 브라우저 설정을 확인하세요.' }))
+        setState((previous) => ({ ...previous, isPreviewPlaying: false, previewError: 'Unable to start the preview. Press Play preview again or check your browser settings.' }))
       }
     }
   }

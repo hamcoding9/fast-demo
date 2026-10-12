@@ -21,7 +21,7 @@ export function useAudioList() {
         if (!active) return
         setState(error instanceof FirebaseNotConfiguredError
           ? { status: 'unconfigured', message: error.message }
-          : { status: 'error', message: '오디오 목록을 불러오지 못했습니다. 연결과 Storage 접근 권한을 확인한 뒤 다시 시도하세요.' })
+          : { status: 'error', message: 'Unable to load the audio library. Check your connection and Storage permissions, then try again.' })
       },
     )
     return () => { active = false }

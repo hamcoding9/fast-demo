@@ -30,7 +30,7 @@ function renderPlayer() {
 }
 async function waitForPlayback(index = 0) {
   await waitFor(() => expect(instances[index].play).toHaveBeenCalledTimes(1))
-  await screen.findByRole('button', { name: '일시정지' })
+  await screen.findByRole('button', { name: 'Pause' })
   return instances[index]
 }
 
@@ -44,7 +44,7 @@ describe('audio player', () => {
     const audio = await waitForPlayback()
     expect(getAudioDownloadUrl).toHaveBeenCalledWith(files[0].id)
     expect(audio.src).toBe(`https://audio.test/${files[0].id}`)
-    await user.click(screen.getByRole('button', { name: '플레이어 닫기' }))
+    await user.click(screen.getByRole('button', { name: 'Close player' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(audio.pause).toHaveBeenCalled()
     expect(opener).toHaveFocus()
@@ -55,26 +55,26 @@ describe('audio player', () => {
     const user = userEvent.setup()
     renderPlayer()
     const audio = await waitForPlayback()
-    await user.click(screen.getByRole('button', { name: '일시정지' }))
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
     expect(audio.pause).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('button', { name: '재생' })).toBeEnabled()
-    await user.click(screen.getByRole('button', { name: '재생' }))
+    expect(screen.getByRole('button', { name: 'Play' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Play' }))
     expect(audio.play).toHaveBeenCalledTimes(2)
-    expect(screen.getByRole('button', { name: '일시정지' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
   })
 
   it('updates duration and current time and seeks using the range input', async () => {
     renderPlayer()
     const audio = await waitForPlayback()
-    expect(screen.getByRole('slider', { name: '재생 위치' })).toBeDisabled()
+    expect(screen.getByRole('slider', { name: 'Playback position' })).toBeDisabled()
     act(() => { audio.duration = 125; audio.dispatchEvent(new Event('loadedmetadata')) })
-    expect(screen.getByLabelText('전체 재생 시간')).toHaveTextContent('02:05')
-    fireEvent.change(screen.getByRole('slider', { name: '재생 위치' }), { target: { value: '40' } })
+    expect(screen.getByLabelText('Total duration')).toHaveTextContent('02:05')
+    fireEvent.change(screen.getByRole('slider', { name: 'Playback position' }), { target: { value: '40' } })
     expect(audio.currentTime).toBe(40)
-    expect(screen.getByLabelText('현재 재생 시간')).toHaveTextContent('00:40')
+    expect(screen.getByLabelText('Current time')).toHaveTextContent('00:40')
     act(() => { audio.currentTime = 75; audio.dispatchEvent(new Event('timeupdate')) })
     expect(screen.getByRole('slider')).toHaveValue('75')
-    expect(screen.getByLabelText('현재 재생 시간')).toHaveTextContent('01:15')
+    expect(screen.getByLabelText('Current time')).toHaveTextContent('01:15')
   })
 
   it('updates the ended state and restarts playback from zero', async () => {
@@ -89,19 +89,19 @@ describe('audio player', () => {
       audio.ended = true
       audio.dispatchEvent(new Event('ended'))
     })
-    expect(screen.getByLabelText('현재 재생 시간')).toHaveTextContent('01:30')
-    await user.click(screen.getByRole('button', { name: '다시 재생' }))
+    expect(screen.getByLabelText('Current time')).toHaveTextContent('01:30')
+    await user.click(screen.getByRole('button', { name: 'Replay' }))
     expect(audio.currentTime).toBe(0)
     expect(audio.play).toHaveBeenCalledTimes(2)
-    expect(screen.getByRole('button', { name: '일시정지' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
   })
 
   it('stops the previous file and plays the selected file in the modal', async () => {
     const user = userEvent.setup()
     render(<AudioLibrary />)
-    await user.click(await screen.findByRole('button', { name: 'one.wav 재생' }))
+    await user.click(await screen.findByRole('button', { name: 'Play one.wav' }))
     const first = await waitForPlayback()
-    await user.selectOptions(screen.getByRole('combobox', { name: '다른 오디오 선택' }), files[1].id)
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Choose another recording' }), files[1].id)
     const second = await waitForPlayback(1)
     expect(first.pause).toHaveBeenCalled()
     expect(first.src).toBe('')
@@ -125,7 +125,7 @@ describe('audio player', () => {
   it('closes with Escape via the native dialog cancel event', async () => {
     const user = userEvent.setup()
     render(<AudioLibrary />)
-    await user.click(await screen.findByRole('button', { name: 'one.wav 재생' }))
+    await user.click(await screen.findByRole('button', { name: 'Play one.wav' }))
     const audio = await waitForPlayback()
     fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -137,27 +137,27 @@ describe('audio player', () => {
     renderPlayer()
     const audio = instances[0]
     audio.play.mockRejectedValueOnce(new DOMException('User gesture required', 'NotAllowedError'))
-    expect(await screen.findByText(/자동재생을 차단/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '재생' }))
+    expect(await screen.findByText(/blocked autoplay/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Play' }))
     expect(audio.play).toHaveBeenCalledTimes(2)
-    expect(screen.getByRole('button', { name: '일시정지' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('shows a download URL error without starting playback', async () => {
     vi.mocked(getAudioDownloadUrl).mockRejectedValue(new Error('storage/unauthorized'))
     renderPlayer()
-    expect(await screen.findByRole('alert')).toHaveTextContent('Storage 접근 권한')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Storage permissions')
     expect(instances[0].play).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: '재생' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Play' })).toBeDisabled()
   })
 
   it('handles decoding or network media errors', async () => {
     renderPlayer()
     const audio = await waitForPlayback()
     act(() => audio.dispatchEvent(new Event('error')))
-    expect(screen.getByRole('alert')).toHaveTextContent('파일 형식과 네트워크')
-    expect(screen.getByRole('button', { name: '재생' })).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent('file format and your network')
+    expect(screen.getByRole('button', { name: 'Play' })).toBeDisabled()
   })
 
   it('ignores a URL that resolves after the modal closes', async () => {
@@ -176,7 +176,7 @@ describe('audio player', () => {
     let resolveFirst!: (url: string) => void
     vi.mocked(getAudioDownloadUrl).mockReturnValueOnce(new Promise((done) => { resolveFirst = done }))
     render(<AudioLibrary />)
-    await user.click(await screen.findByRole('button', { name: 'one.wav 재생' }))
+    await user.click(await screen.findByRole('button', { name: 'Play one.wav' }))
     await user.selectOptions(screen.getByRole('combobox'), files[1].id)
     await waitForPlayback(1)
     await act(async () => { resolveFirst('https://audio.test/stale.wav') })
@@ -196,11 +196,11 @@ describe('audio player', () => {
   it('stops playback when the Play page unmounts on a navigation change', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(await screen.findByRole('button', { name: 'one.wav 재생' }))
+    await user.click(await screen.findByRole('button', { name: 'Play one.wav' }))
     const audio = await waitForPlayback()
     // jsdom does not enforce native modal inertness; this triggers the page teardown path.
     await user.click(within(screen.getByRole('navigation')).getByRole('button', { name: 'Record' }))
-    expect(screen.getByRole('heading', { name: '새로운 녹음' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'New Recording' })).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(audio.pause).toHaveBeenCalled()
     expect(audio.removeEventListener).toHaveBeenCalledTimes(7)
