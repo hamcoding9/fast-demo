@@ -4,12 +4,14 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { useAudioUpload } from '../hooks/useAudioUpload'
-import { uploadAudioRecording, listAudioFiles } from '../services/audioStorage'
+import { uploadAudioRecording } from '../services/audioStorage'
+import { listAudioFiles } from '../services/audios'
 import { installMediaMocks, type MockAudio } from '../test/mediaMocks'
 import { installRecorderMocks } from '../test/recorderMocks'
 import { AudioRecorder } from './AudioRecorder'
 
-vi.mock('../services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
+vi.mock('../services/audios', async (importOriginal) => ({ ...await importOriginal<typeof import('../services/audios')>(), listAudioFiles: vi.fn() }))
+vi.mock('../services/audioStorage', () => ({ getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
 let mocks: ReturnType<typeof installRecorderMocks>
 let previews: MockAudio[]
 vi.mock('../services/groups', async (importOriginal) => ({ ...await importOriginal<typeof import('../services/groups')>(), getGroup: vi.fn() }))

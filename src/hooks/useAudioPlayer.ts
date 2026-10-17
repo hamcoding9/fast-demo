@@ -17,7 +17,7 @@ const initialState: PlayerState = {
 const finiteTime = (value: number) => Number.isFinite(value) && value >= 0 ? value : 0
 
 // Mount a fresh player for each selected file (the modal is keyed by file id).
-export function useAudioPlayer(fileId: string) {
+export function useAudioPlayer(storagePath: string) {
   const [state, setState] = useState(initialState)
   const controls = useRef<{ toggle: () => void; seek: (time: number) => void } | null>(null)
 
@@ -96,7 +96,7 @@ export function useAudioPlayer(fileId: string) {
       },
     }
 
-    getAudioDownloadUrl(fileId).then((url) => {
+    getAudioDownloadUrl(storagePath).then((url) => {
       if (disposed) return
       audio.src = url
       audio.load()
@@ -117,7 +117,7 @@ export function useAudioPlayer(fileId: string) {
       audio.removeAttribute('src')
       audio.load()
     }
-  }, [fileId])
+  }, [storagePath])
 
   return {
     ...state,

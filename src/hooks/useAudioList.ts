@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FirebaseNotConfiguredError } from '../config/firebase'
-import { listAudioFiles } from '../services/audioStorage'
+import { InvalidAudioMetadataError, listAudioFiles } from '../services/audios'
 import type { AudioFile } from '../types/audio'
 
 type AudioListState =
@@ -9,26 +9,32 @@ type AudioListState =
   | { status: 'unconfigured'; message: string }
   | { status: 'error'; message: string }
 
-export function useAudioList() {
-  const [state, setState] = useState<AudioListState>({ status: 'loading' })
+export function useAudioList(groupId: string) {
+  const [result, setResult] = useState<{ key: string; state: AudioListState } | null>(null)
   const [revision, setRevision] = useState(0)
+
+  const requestKey = JSON.stringify([groupId, revision])
+  const state: AudioListState = result?.key === requestKey ? result.state : { status: 'loading' }
 
   useEffect(() => {
     let active = true
-    listAudioFiles().then(
-      (files) => { if (active) setState({ status: 'ready', files }) },
+    listAudioFiles(groupId).then(
+      (files) => { if (active) setResult({ key: requestKey, state: { status: 'ready', files } }) },
       (error: unknown) => {
         if (!active) return
-        setState(error instanceof FirebaseNotConfiguredError
+        const state: AudioListState = error instanceof FirebaseNotConfiguredError
           ? { status: 'unconfigured', message: error.message }
-          : { status: 'error', message: 'Unable to load the audio library. Check your connection and Storage permissions, then try again.' })
+          : { status: 'error', message: error instanceof InvalidAudioMetadataError ? error.message
+            : typeof error === 'object' && error !== null && 'code' in error && error.code === 'failed-precondition'
+              ? 'Unable to load the audio library. Check the Firestore composite index deployment and wait for indexes to finish building, then refresh.'
+              : 'Unable to load the audio library. Check your connection and Firestore permissions, then try again.' }
+        setResult({ key: requestKey, state })
       },
     )
     return () => { active = false }
-  }, [revision])
+  }, [groupId, requestKey])
 
   function refresh() {
-    setState({ status: 'loading' })
     setRevision((value) => value + 1)
   }
 

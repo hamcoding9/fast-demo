@@ -1,20 +1,22 @@
+import { audioFixture } from './test/audioFixtures'
 import { getGroup } from './services/groups'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FirebaseNotConfiguredError } from './config/firebase'
-import { listAudioFiles } from './services/audioStorage'
+import { listAudioFiles } from './services/audios'
 import App from './App'
 
-vi.mock('./services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
+vi.mock('./services/audios', async (importOriginal) => ({ ...await importOriginal<typeof import('./services/audios')>(), listAudioFiles: vi.fn() }))
+vi.mock('./services/audioStorage', () => ({ getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
 vi.mock('./services/groups', async (importOriginal) => ({ ...await importOriginal<typeof import('./services/groups')>(), getGroup: vi.fn() }))
 beforeEach(() => {
   window.history.replaceState(null, '', '/?groupId=group-a')
   vi.mocked(getGroup).mockReset().mockResolvedValue({ id: 'group-a', name: 'Group A', isActive: true })
   vi.mocked(listAudioFiles).mockReset().mockResolvedValue([
-    { id: 'recordings/one.wav', name: 'one.wav', uploadedAt: '2026-10-11T12:00:00Z' },
-    { id: 'recordings/two.wav', name: 'two.wav', uploadedAt: '2026-10-10T12:00:00Z' },
-    { id: 'recordings/three.wav', name: 'three.wav', uploadedAt: '2026-10-09T12:00:00Z' },
+    audioFixture({ id: 'doc-one.wav', name: 'one.wav', storagePath: 'recordings/group-a/one.wav', uploadedAt: '2026-10-11T12:00:00Z' }),
+    audioFixture({ id: 'doc-two.wav', name: 'two.wav', storagePath: 'recordings/group-a/two.wav', uploadedAt: '2026-10-10T12:00:00Z' }),
+    audioFixture({ id: 'doc-three.wav', name: 'three.wav', storagePath: 'recordings/group-a/three.wav', uploadedAt: '2026-10-09T12:00:00Z' }),
   ])
 })
 

@@ -17,7 +17,7 @@ function formatTime(seconds: number) {
 }
 
 export function AudioPlayer({ audio, files, onSelect, onClose }: Props) {
-  const player = useAudioPlayer(audio.id)
+  const player = useAudioPlayer(audio.storagePath)
   const dialog = useRef<HTMLDialogElement>(null)
   const headingId = useId()
   const ended = player.duration > 0 && player.currentTime >= player.duration && !player.isPlaying

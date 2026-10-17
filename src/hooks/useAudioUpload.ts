@@ -55,7 +55,7 @@ export function useAudioUpload(recording: RecordedAudio | null, enabled = true) 
       request.operation.promise.then(() => {
         if (active.current !== request) return
         active.current = null
-        setState({ blob, status: 'success', progress: 100, message: 'Upload complete. Open the Play tab to find your new recording.' })
+        setState({ blob, status: 'success', progress: 100, message: 'Upload complete. The file is stored in Firebase Storage.' })
       }, fail)
     } catch (error) { fail(error) }
   }

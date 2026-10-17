@@ -22,7 +22,7 @@ export default function App() {
       </header>
       <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-5xl py-10 sm:py-14">
         <GroupStatus state={groupState} onRetry={retry} />
-        <div key={scopeKey}>{activePage === 'play' ? <PlayPage cloudEnabled={cloudEnabled} /> : <RecordPage cloudEnabled={cloudEnabled} />}</div>
+        <div key={scopeKey}>{activePage === 'play' ? <PlayPage groupId={groupState.status === 'ready' ? groupState.group.id : null} /> : <RecordPage cloudEnabled={cloudEnabled} />}</div>
       </main>
       <BottomNavigation activePage={activePage} onNavigate={navigate} />
     </div>

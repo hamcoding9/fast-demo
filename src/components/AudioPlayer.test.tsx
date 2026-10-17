@@ -1,19 +1,22 @@
+import { audioFixture } from '../test/audioFixtures'
 import { getGroup } from '../services/groups'
 import { StrictMode } from 'react'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getAudioDownloadUrl, listAudioFiles } from '../services/audioStorage'
+import { getAudioDownloadUrl } from '../services/audioStorage'
+import { listAudioFiles } from '../services/audios'
 import { installMediaMocks, type MockAudio } from '../test/mediaMocks'
 import type { AudioFile } from '../types/audio'
 import App from '../App'
 import { AudioLibrary } from './AudioLibrary'
 import { AudioPlayer } from './AudioPlayer'
 
-vi.mock('../services/audioStorage', () => ({ getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn(), listAudioFiles: vi.fn() }))
+vi.mock('../services/audios', async (importOriginal) => ({ ...await importOriginal<typeof import('../services/audios')>(), listAudioFiles: vi.fn() }))
+vi.mock('../services/audioStorage', () => ({ getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
 const files: AudioFile[] = [
-  { id: 'recordings/one.wav', name: 'one.wav', uploadedAt: '2026-10-11T12:00:00Z' },
-  { id: 'recordings/two.mp3', name: 'two.mp3', uploadedAt: '2026-10-10T12:00:00Z' },
+  audioFixture({ id: 'doc-one.wav', name: 'one.wav', storagePath: 'recordings/group-a/one.wav', uploadedAt: '2026-10-11T12:00:00Z' }),
+  audioFixture({ id: 'doc-two.mp3', name: 'two.mp3', storagePath: 'recordings/group-a/two.mp3', uploadedAt: '2026-10-10T12:00:00Z' }),
 ]
 let instances: MockAudio[]
 vi.mock('../services/groups', async (importOriginal) => ({ ...await importOriginal<typeof import('../services/groups')>(), getGroup: vi.fn() }))
@@ -41,13 +44,13 @@ async function waitForPlayback(index = 0) {
 describe('audio player', () => {
   it('opens from a file name and closes, restoring focus and stopping playback', async () => {
     const user = userEvent.setup()
-    render(<AudioLibrary />)
+    render(<AudioLibrary groupId="group-a" />)
     const opener = await screen.findByRole('button', { name: 'one.wav' })
     await user.click(opener)
     expect(screen.getByRole('dialog', { name: 'one.wav' })).toBeInTheDocument()
     const audio = await waitForPlayback()
-    expect(getAudioDownloadUrl).toHaveBeenCalledWith(files[0].id)
-    expect(audio.src).toBe(`https://audio.test/${files[0].id}`)
+    expect(getAudioDownloadUrl).toHaveBeenCalledWith(files[0].storagePath)
+    expect(audio.src).toBe(`https://audio.test/${files[0].storagePath}`)
     await user.click(screen.getByRole('button', { name: 'Close player' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(audio.pause).toHaveBeenCalled()
@@ -102,7 +105,7 @@ describe('audio player', () => {
 
   it('stops the previous file and plays the selected file in the modal', async () => {
     const user = userEvent.setup()
-    render(<AudioLibrary />)
+    render(<AudioLibrary groupId="group-a" />)
     await user.click(await screen.findByRole('button', { name: 'Play one.wav' }))
     const first = await waitForPlayback()
     await user.selectOptions(screen.getByRole('combobox', { name: 'Choose another recording' }), files[1].id)
@@ -110,7 +113,7 @@ describe('audio player', () => {
     expect(first.pause).toHaveBeenCalled()
     expect(first.src).toBe('')
     expect(first.removeEventListener).toHaveBeenCalledTimes(7)
-    expect(second.src).toBe(`https://audio.test/${files[1].id}`)
+    expect(second.src).toBe(`https://audio.test/${files[1].storagePath}`)
     expect(screen.getByRole('dialog', { name: 'two.mp3' })).toBeInTheDocument()
   })
 
@@ -128,7 +131,7 @@ describe('audio player', () => {
 
   it('closes with Escape via the native dialog cancel event', async () => {
     const user = userEvent.setup()
-    render(<AudioLibrary />)
+    render(<AudioLibrary groupId="group-a" />)
     await user.click(await screen.findByRole('button', { name: 'Play one.wav' }))
     const audio = await waitForPlayback()
     fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }))
@@ -179,14 +182,14 @@ describe('audio player', () => {
     const user = userEvent.setup()
     let resolveFirst!: (url: string) => void
     vi.mocked(getAudioDownloadUrl).mockReturnValueOnce(new Promise((done) => { resolveFirst = done }))
-    render(<AudioLibrary />)
+    render(<AudioLibrary groupId="group-a" />)
     await user.click(await screen.findByRole('button', { name: 'Play one.wav' }))
     await user.selectOptions(screen.getByRole('combobox'), files[1].id)
     await waitForPlayback(1)
     await act(async () => { resolveFirst('https://audio.test/stale.wav') })
     expect(instances[0].play).not.toHaveBeenCalled()
     expect(instances[0].src).toBe('')
-    expect(instances[1].src).toBe(`https://audio.test/${files[1].id}`)
+    expect(instances[1].src).toBe(`https://audio.test/${files[1].storagePath}`)
   })
 
   it('cleans up the StrictMode trial instance and plays only the live instance', async () => {
@@ -209,4 +212,19 @@ describe('audio player', () => {
     expect(audio.pause).toHaveBeenCalled()
     expect(audio.removeEventListener).toHaveBeenCalledTimes(7)
   })
+})
+
+it('removes the previous group list and player when the group changes', async () => {
+  const user = userEvent.setup()
+  const { rerender } = render(<AudioLibrary groupId="group-a" />)
+  await user.click(await screen.findByRole('button', { name: 'Play one.wav' }))
+  const first = await waitForPlayback()
+  vi.mocked(listAudioFiles).mockResolvedValueOnce([])
+  rerender(<AudioLibrary groupId="group-b" />)
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Play one.wav' })).not.toBeInTheDocument()
+  expect(first.pause).toHaveBeenCalled()
+  expect(first.src).toBe('')
+  expect(await screen.findByText(/No recordings yet/)).toBeInTheDocument()
+  expect(listAudioFiles).toHaveBeenLastCalledWith('group-b')
 })

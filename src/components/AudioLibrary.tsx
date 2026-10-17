@@ -4,9 +4,10 @@ import type { AudioFile } from '../types/audio'
 import { AudioCard } from './AudioCard'
 import { AudioPlayer } from './AudioPlayer'
 
-export function AudioLibrary() {
-  const { state, refresh } = useAudioList()
-  const [selected, setSelected] = useState<AudioFile | null>(null)
+export function AudioLibrary({ groupId }: { groupId: string }) {
+  const { state, refresh } = useAudioList(groupId)
+  const [selection, setSelection] = useState<AudioFile | null>(null)
+  const selected = selection?.groupId === groupId ? selection : null
   return (
     <section aria-labelledby="library-title" aria-busy={state.status === 'loading'}>
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -22,10 +23,10 @@ export function AudioLibrary() {
       {state.status === 'unconfigured' && <p role="status" className="library-message">{state.message}</p>}
       {state.status === 'error' && <p role="alert" className="library-message text-red-700">{state.message}</p>}
       {state.status === 'ready' && (state.files.length > 0
-        ? <ul className="space-y-3">{state.files.map((audio) => <AudioCard key={audio.id} audio={audio} onSelect={setSelected} />)}</ul>
-        : <p role="status" className="library-message">No recordings yet. Upload an audio file to recordings/, then refresh the library.</p>)}
+        ? <ul className="space-y-3">{state.files.map((audio) => <AudioCard key={audio.id} audio={audio} onSelect={setSelection} />)}</ul>
+        : <p role="status" className="library-message">No recordings yet. This group has no published audio. Refresh after a recording is added.</p>)}
       <p className="mt-5 text-xs leading-5 text-slate-500">Select a file name or play button to listen.</p>
-      {selected && <AudioPlayer key={selected.id} audio={selected} files={state.status === 'ready' ? state.files : [selected]} onSelect={setSelected} onClose={() => setSelected(null)} />}
+      {selected && <AudioPlayer key={selected.id} audio={selected} files={state.status === 'ready' ? state.files : [selected]} onSelect={setSelection} onClose={() => setSelection(null)} />}
     </section>
   )
 }
