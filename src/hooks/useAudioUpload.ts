@@ -22,7 +22,7 @@ function errorMessage(error: unknown) {
   return 'Upload failed. Check your network connection and Firebase Storage configuration, then try again.'
 }
 
-export function useAudioUpload(recording: RecordedAudio | null) {
+export function useAudioUpload(recording: RecordedAudio | null, enabled = true) {
   const blob = recording?.blob ?? null
   const [state, setState] = useState<UploadState>(initialState)
   const active = useRef<ActiveUpload | null>(null)
@@ -36,10 +36,10 @@ export function useAudioUpload(recording: RecordedAudio | null) {
     }
     window.addEventListener('pagehide', cancel)
     return () => { window.removeEventListener('pagehide', cancel); cancel() }
-  }, [blob])
+  }, [blob, enabled])
 
   function upload() {
-    if (!blob || active.current || (state.blob === blob && state.status === 'success')) return
+    if (!enabled || !blob || active.current || (state.blob === blob && state.status === 'success')) return
     const request: ActiveUpload = { blob }
     active.current = request
     setState({ blob, status: 'uploading', progress: 0, message: null })

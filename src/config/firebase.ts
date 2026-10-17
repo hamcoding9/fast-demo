@@ -1,4 +1,5 @@
 import { getApps, initializeApp } from 'firebase/app'
+import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 
 export class FirebaseNotConfiguredError extends Error {
@@ -9,7 +10,7 @@ export class FirebaseNotConfiguredError extends Error {
 }
 
 // Initialize lazily: missing configuration must never crash application startup.
-export function getFirebaseStorage() {
+function getFirebaseApp() {
   const options = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY?.trim(),
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN?.trim(),
@@ -25,5 +26,13 @@ export function getFirebaseStorage() {
 
   const app = getApps().find((existing) => existing.name === 'fast-demo')
     ?? initializeApp(options, 'fast-demo')
-  return getStorage(app)
+  return app
+}
+
+export function getFirebaseStorage() {
+  return getStorage(getFirebaseApp())
+}
+
+export function getFirebaseFirestore() {
+  return getFirestore(getFirebaseApp())
 }

@@ -1,3 +1,4 @@
+import { doc, getDoc, getFirestore, type Firestore, type DocumentSnapshot } from 'firebase/firestore'
 import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,6 +11,7 @@ import { installRecorderMocks } from './test/recorderMocks'
 import { MockUploadTask } from './test/uploadMocks'
 
 // Only platform/SDK boundaries are mocked; production services and hooks run.
+vi.mock('firebase/firestore', () => ({ getFirestore: vi.fn(), doc: vi.fn(), getDoc: vi.fn() }))
 vi.mock('firebase/app', () => ({ getApps: vi.fn(), initializeApp: vi.fn() }))
 vi.mock('firebase/storage', () => ({ getStorage: vi.fn(), ref: vi.fn(), listAll: vi.fn(), getMetadata: vi.fn(), getDownloadURL: vi.fn(), uploadBytesResumable: vi.fn() }))
 let recorder: ReturnType<typeof installRecorderMocks>
@@ -19,6 +21,10 @@ let stored: Map<string, FullMetadata>
 
 beforeEach(() => {
   vi.resetAllMocks()
+  window.history.replaceState(null, '', '/?groupId=group-a')
+  vi.mocked(getFirestore).mockReturnValue({} as Firestore)
+  vi.mocked(doc).mockReturnValue({} as ReturnType<typeof doc>)
+  vi.mocked(getDoc).mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group A', isActive: true }) } as unknown as DocumentSnapshot)
   recorder = installRecorderMocks()
   audio = installMediaMocks()
   tasks = []

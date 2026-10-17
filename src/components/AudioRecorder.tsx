@@ -8,9 +8,9 @@ const labels: Record<RecordingStatus, string> = {
   ready: 'Recording complete', error: 'Recording error', unsupported: 'Recording unavailable',
 }
 
-export function AudioRecorder() {
+export function AudioRecorder({ uploadEnabled = true }: { uploadEnabled?: boolean }) {
   const recorder = useAudioRecorder()
-  const upload = useAudioUpload(recorder.recording)
+  const upload = useAudioUpload(recorder.recording, uploadEnabled)
   const time = `${Math.floor(recorder.seconds / 60).toString().padStart(2, '0')}:${(recorder.seconds % 60).toString().padStart(2, '0')}`
   return (
     <section aria-labelledby="recorder-title" className="mx-auto flex max-w-2xl flex-col items-center rounded-3xl border border-slate-200 bg-white px-5 py-10 text-center sm:py-14">
@@ -31,8 +31,9 @@ export function AudioRecorder() {
             {recorder.previewError && <p role="alert" className="mt-3 text-sm leading-6 text-red-700">{recorder.previewError}</p>}
             <div className="mt-3 grid grid-cols-2 gap-3">
               <button type="button" disabled={upload.status === 'uploading'} onClick={() => void recorder.reRecord()} className="min-h-12 rounded-xl border border-slate-200 px-3 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50">Record again</button>
-              <button type="button" onClick={upload.upload} disabled={upload.status === 'uploading' || upload.status === 'success'} className="min-h-12 rounded-xl bg-indigo-50 px-3 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50">{upload.status === 'uploading' ? 'Uploading' : upload.status === 'success' ? 'Uploaded' : 'Upload'}</button>
+              <button type="button" onClick={upload.upload} disabled={!uploadEnabled || upload.status === 'uploading' || upload.status === 'success'} className="min-h-12 rounded-xl bg-indigo-50 px-3 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50">{upload.status === 'uploading' ? 'Uploading' : upload.status === 'success' ? 'Uploaded' : 'Upload'}</button>
             </div>
+            {!uploadEnabled && <p className="mt-3 text-sm text-slate-500">Verify your group before uploading. Recording and preview are available locally.</p>}
             {upload.status === 'uploading' && <div className="mt-4"><progress aria-label="Upload progress" value={upload.progress} max="100" className="h-2 w-full accent-indigo-600" /><p className="mt-1 text-xs tabular-nums text-slate-500">{upload.progress}%</p></div>}
             {upload.message && <p role={upload.status === 'error' ? 'alert' : 'status'} className={`mt-3 text-sm leading-6 ${upload.status === 'error' ? 'text-red-700' : 'text-teal-700'}`}>{upload.message}</p>}
           </div>

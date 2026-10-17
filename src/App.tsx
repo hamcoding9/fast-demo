@@ -1,3 +1,5 @@
+import { GroupStatus } from './components/GroupStatus'
+import { useGroup } from './hooks/useGroup'
 import { BottomNavigation } from './components/BottomNavigation'
 import { Icon } from './components/Icon'
 import { useNavigation } from './hooks/useNavigation'
@@ -6,6 +8,8 @@ import { RecordPage } from './pages/RecordPage'
 
 export default function App() {
   const { activePage, navigate } = useNavigation()
+  const { state: groupState, retry, scopeKey } = useGroup()
+  const cloudEnabled = groupState.status === 'ready'
   return (
     <div className="app-shell">
       <a href="#main-content" className="skip-link">Skip to main content</a>
@@ -17,7 +21,8 @@ export default function App() {
         <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">Record · Listen · Keep</span>
       </header>
       <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-5xl py-10 sm:py-14">
-        {activePage === 'play' ? <PlayPage /> : <RecordPage />}
+        <GroupStatus state={groupState} onRetry={retry} />
+        <div key={scopeKey}>{activePage === 'play' ? <PlayPage cloudEnabled={cloudEnabled} /> : <RecordPage cloudEnabled={cloudEnabled} />}</div>
       </main>
       <BottomNavigation activePage={activePage} onNavigate={navigate} />
     </div>

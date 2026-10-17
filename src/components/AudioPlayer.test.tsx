@@ -1,3 +1,4 @@
+import { getGroup } from '../services/groups'
 import { StrictMode } from 'react'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -15,7 +16,10 @@ const files: AudioFile[] = [
   { id: 'recordings/two.mp3', name: 'two.mp3', uploadedAt: '2026-10-10T12:00:00Z' },
 ]
 let instances: MockAudio[]
+vi.mock('../services/groups', async (importOriginal) => ({ ...await importOriginal<typeof import('../services/groups')>(), getGroup: vi.fn() }))
 beforeEach(() => {
+  window.history.replaceState(null, '', '/?groupId=group-a')
+  vi.mocked(getGroup).mockReset().mockResolvedValue({ id: 'group-a', name: 'Group A', isActive: true })
   instances = installMediaMocks()
   vi.mocked(getAudioDownloadUrl).mockReset().mockImplementation(async (id) => `https://audio.test/${id}`)
   vi.mocked(listAudioFiles).mockReset().mockResolvedValue(files)

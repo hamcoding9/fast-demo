@@ -1,4 +1,5 @@
-import { render, screen, within } from '@testing-library/react'
+import { getGroup } from './services/groups'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FirebaseNotConfiguredError } from './config/firebase'
@@ -6,7 +7,10 @@ import { listAudioFiles } from './services/audioStorage'
 import App from './App'
 
 vi.mock('./services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
+vi.mock('./services/groups', async (importOriginal) => ({ ...await importOriginal<typeof import('./services/groups')>(), getGroup: vi.fn() }))
 beforeEach(() => {
+  window.history.replaceState(null, '', '/?groupId=group-a')
+  vi.mocked(getGroup).mockReset().mockResolvedValue({ id: 'group-a', name: 'Group A', isActive: true })
   vi.mocked(listAudioFiles).mockReset().mockResolvedValue([
     { id: 'recordings/one.wav', name: 'one.wav', uploadedAt: '2026-10-11T12:00:00Z' },
     { id: 'recordings/two.wav', name: 'two.wav', uploadedAt: '2026-10-10T12:00:00Z' },
@@ -66,5 +70,40 @@ describe('bottom navigation', () => {
     expect(screen.getByRole('heading', { name: 'New Recording' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Play' }))
     expect(await screen.findByText(/Firebase configuration is required/)).toBeInTheDocument()
+  })
+})
+
+
+describe('group cloud access gate', () => {
+  it('does not query audio until an active group is verified', async () => {
+    let resolve!: (value: { id: string; name: string; isActive: boolean }) => void
+    vi.mocked(getGroup).mockReturnValueOnce(new Promise((done) => { resolve = done }))
+    render(<App />)
+    expect(screen.getByText('Loading group…')).toBeInTheDocument()
+    expect(listAudioFiles).not.toHaveBeenCalled()
+    await act(async () => resolve({ id: 'group-a', name: 'Group A', isActive: true }))
+    expect(screen.getByText('Group A')).toBeInTheDocument()
+    expect(await screen.findAllByRole('listitem')).toHaveLength(3)
+    expect(listAudioFiles).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([['/', 'Open a group link'], ['/?groupId=a%2Fb', 'Invalid Group ID']])('keeps navigation usable and blocks cloud access for %s', async (url, message) => {
+    window.history.replaceState(null, '', url)
+    const user = userEvent.setup()
+    render(<App />)
+    expect(screen.getByText(new RegExp(message))).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Record' }))
+    expect(screen.getByRole('heading', { name: 'New Recording' })).toBeInTheDocument()
+    expect(getGroup).not.toHaveBeenCalled()
+    expect(listAudioFiles).not.toHaveBeenCalled()
+  })
+
+  it.each(['missing', 'inactive', 'error'])('does not expose the library for a %s group', async (kind) => {
+    if (kind === 'error') vi.mocked(getGroup).mockRejectedValue(new Error('permission-denied'))
+    else vi.mocked(getGroup).mockResolvedValue(kind === 'missing' ? null : { id: 'group-a', name: 'Group A', isActive: false })
+    render(<App />)
+    const message = kind === 'missing' ? /This group does not exist/ : kind === 'inactive' ? /This group is inactive/ : /Unable to load this group/
+    expect(await screen.findByText(message)).toBeInTheDocument()
+    expect(listAudioFiles).not.toHaveBeenCalled()
   })
 })

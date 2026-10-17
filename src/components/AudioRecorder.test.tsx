@@ -1,8 +1,10 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { getGroup } from '../services/groups'
+import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
-import { listAudioFiles } from '../services/audioStorage'
+import { useAudioUpload } from '../hooks/useAudioUpload'
+import { uploadAudioRecording, listAudioFiles } from '../services/audioStorage'
 import { installMediaMocks, type MockAudio } from '../test/mediaMocks'
 import { installRecorderMocks } from '../test/recorderMocks'
 import { AudioRecorder } from './AudioRecorder'
@@ -10,7 +12,10 @@ import { AudioRecorder } from './AudioRecorder'
 vi.mock('../services/audioStorage', () => ({ listAudioFiles: vi.fn(), getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
 let mocks: ReturnType<typeof installRecorderMocks>
 let previews: MockAudio[]
+vi.mock('../services/groups', async (importOriginal) => ({ ...await importOriginal<typeof import('../services/groups')>(), getGroup: vi.fn() }))
 beforeEach(() => {
+  window.history.replaceState(null, '', '/?groupId=group-a')
+  vi.mocked(getGroup).mockReset().mockResolvedValue({ id: 'group-a', name: 'Group A', isActive: true })
   mocks = installRecorderMocks()
   previews = installMediaMocks()
   vi.mocked(listAudioFiles).mockReset().mockResolvedValue([])
@@ -95,4 +100,31 @@ describe('recorder UI', () => {
     expect(previews[0].src).toBe('')
     expect(mocks.revokeObjectURL).toHaveBeenCalledWith('blob:recording-1')
   })
+})
+
+
+it('keeps local recording and preview available but blocks upload without a verified group', async () => {
+  window.history.replaceState(null, '', '/')
+  const user = userEvent.setup()
+  vi.mocked(uploadAudioRecording).mockClear()
+  render(<App />)
+  await user.click(screen.getByRole('button', { name: 'Record' }))
+  await user.click(screen.getByRole('button', { name: 'Start recording' }))
+  await user.click(screen.getByRole('button', { name: 'Stop recording' }))
+  await user.click(screen.getByRole('button', { name: 'Play preview' }))
+  expect(previews[0].play).toHaveBeenCalled()
+  const upload = screen.getByRole('button', { name: 'Upload' })
+  expect(upload).toBeDisabled()
+  await user.click(upload)
+  expect(uploadAudioRecording).not.toHaveBeenCalled()
+  expect(listAudioFiles).not.toHaveBeenCalled()
+})
+
+it('guards upload calls at the hook boundary when disabled', () => {
+  vi.mocked(uploadAudioRecording).mockClear()
+  const recording = { blob: new Blob(['audio'], { type: 'audio/webm' }), url: 'blob:test', mimeType: 'audio/webm' }
+  const { result } = renderHook(() => useAudioUpload(recording, false))
+  act(() => result.current.upload())
+  expect(uploadAudioRecording).not.toHaveBeenCalled()
+  expect(result.current.status).toBe('idle')
 })
