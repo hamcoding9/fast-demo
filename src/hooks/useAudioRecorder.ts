@@ -230,6 +230,7 @@ export function useAudioRecorder() {
     try {
       if (preview.audio.ended) preview.audio.currentTime = 0
       await preview.audio.play()
+      if (!mounted.current || previewRef.current !== preview) { preview.audio.pause(); return }
       if (mounted.current && previewRef.current === preview && request === preview.playRequest) {
         setState((previous) => ({ ...previous, isPreviewPlaying: !preview.audio.paused }))
       }

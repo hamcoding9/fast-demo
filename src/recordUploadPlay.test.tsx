@@ -7,7 +7,7 @@ import { getDownloadURL, getStorage, ref, uploadBytesResumable, type FirebaseSto
 import App from './App'
 import { useAudioUpload } from './hooks/useAudioUpload'
 import { installMediaMocks, type MockAudio } from './test/mediaMocks'
-import { installRecorderMocks } from './test/recorderMocks'
+import { installRecorderMocks, makeMockStream } from './test/recorderMocks'
 import { MockUploadTask } from './test/uploadMocks'
 
 // Only platform/SDK boundaries are mocked; production services and hooks run.
@@ -177,4 +177,194 @@ describe('Recording, legacy upload and Firestore playback integration', () => {
     act(() => tasks[0].complete())
     expect(screen.queryByText(/Upload complete/)).not.toBeInTheDocument()
   })
+})
+
+
+function registerAudio(groupId: string, id = 'shared-id', fileName = `${groupId}.wav`) {
+  const path = `recordings/${groupId}/${id}.wav`
+  documents.push({ id, data: () => ({ groupId, fileName, storagePath: path,
+    contentType: 'audio/wav', size: 1024, status: 'ready', uploadedAt: Timestamp.fromDate(new Date('2026-10-17T12:00:00Z')) }) })
+  return path
+}
+function changeGroup(groupId: string, replace = false) {
+  act(() => window.history[replace ? 'replaceState' : 'pushState'](null, '', `/?groupId=${groupId}`))
+}
+
+describe('group and page lifecycle integration with mocked Firebase/media APIs', () => {
+  it('stops group A playback and selects group B by Storage path, even with the same document ID', async () => {
+    const pathA = registerAudio('group-a')
+    const pathB = registerAudio('group-b')
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: 'Play group-a.wav' }))
+    await waitFor(() => expect(audio[0].play).toHaveBeenCalledTimes(1))
+    expect(getDownloadURL).toHaveBeenCalledWith(expect.objectContaining({ fullPath: pathA }))
+    changeGroup('group-b')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(audio[0].pause).toHaveBeenCalled()
+    expect(audio[0].removeEventListener).toHaveBeenCalledTimes(7)
+    expect(audio[0].src).toBe('')
+    await user.click(await screen.findByRole('button', { name: 'Play group-b.wav' }))
+    await waitFor(() => expect(audio[1].play).toHaveBeenCalledTimes(1))
+    expect(audio[1].src).toBe(`https://audio.test/${pathB}`)
+    expect(screen.queryByRole('button', { name: 'Play group-a.wav' })).not.toBeInTheDocument()
+    act(() => audio[0].dispatchEvent(new Event('error')))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('ignores an old Download URL after replacing the URL group', async () => {
+    registerAudio('group-a')
+    registerAudio('group-b')
+    let finish!: (value: string) => void
+    vi.mocked(getDownloadURL).mockReturnValueOnce(new Promise((done) => { finish = done }))
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: 'Play group-a.wav' }))
+    changeGroup('group-b', true)
+    await user.click(await screen.findByRole('button', { name: 'Play group-b.wav' }))
+    await waitFor(() => expect(audio[1].play).toHaveBeenCalledTimes(1))
+    await act(async () => finish('https://audio.test/stale-group-a.wav'))
+    expect(audio[0].play).not.toHaveBeenCalled()
+    expect(audio[0].src).toBe('')
+    expect(screen.getByRole('dialog', { name: 'group-b.wav' })).toBeInTheDocument()
+  })
+
+  it('ignores a late Firestore list from the old group', async () => {
+    registerAudio('group-a')
+    registerAudio('group-b')
+    let finish!: (value: QuerySnapshot) => void
+    vi.mocked(getDocs).mockReturnValueOnce(new Promise((done) => { finish = done }))
+    render(<App />)
+    await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(1))
+    changeGroup('group-b')
+    expect(await screen.findByRole('button', { name: 'Play group-b.wav' })).toBeInTheDocument()
+    await act(async () => finish({ docs: documents } as unknown as QuerySnapshot))
+    expect(screen.queryByRole('button', { name: 'Play group-a.wav' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Play group-b.wav' })).toBeInTheDocument()
+  })
+
+  it('handles browser Back and Forward without restoring a previous selection', async () => {
+    registerAudio('group-a')
+    registerAudio('group-b')
+    render(<App />)
+    await screen.findByRole('button', { name: 'Play group-a.wav' })
+    changeGroup('group-b')
+    await screen.findByRole('button', { name: 'Play group-b.wav' })
+    act(() => window.history.back())
+    await screen.findByRole('button', { name: 'Play group-a.wav' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    act(() => window.history.forward())
+    await screen.findByRole('button', { name: 'Play group-b.wav' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('stops recording, microphone tracks and recorder listeners on a group change', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText(/No recordings yet/)
+    await user.click(screen.getByRole('button', { name: 'Record' }))
+    await user.click(screen.getByRole('button', { name: 'Start recording' }))
+    const previous = recorder.instances[0]
+    changeGroup('group-b')
+    expect(previous.stop).toHaveBeenCalledTimes(1)
+    expect(previous.removeEventListener).toHaveBeenCalledTimes(4)
+    expect(recorder.streams[0].track.stop).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('timer')).toHaveTextContent('00:00')
+    expect(screen.queryByRole('button', { name: 'Stop recording' })).not.toBeInTheDocument()
+    act(() => { previous.emitData(new Blob(['late data'])); previous.dispatchEvent(new Event('stop')) })
+    expect(recorder.createObjectURL).not.toHaveBeenCalled()
+    await waitFor(() => expect(getDoc).toHaveBeenCalledTimes(2))
+    expect(screen.getByRole('button', { name: 'Start recording' })).toBeEnabled()
+  })
+
+  it('releases a microphone grant that arrives after a group change', async () => {
+    let finish!: (stream: MediaStream) => void
+    recorder.getUserMedia.mockReturnValueOnce(new Promise((done) => { finish = done }))
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText(/No recordings yet/)
+    await user.click(screen.getByRole('button', { name: 'Record' }))
+    await user.click(screen.getByRole('button', { name: 'Start recording' }))
+    changeGroup('group-b')
+    const late = makeMockStream()
+    await act(async () => finish(late.stream as unknown as MediaStream))
+    expect(late.track.stop).toHaveBeenCalledTimes(1)
+    expect(recorder.instances).toHaveLength(0)
+    expect(screen.getByRole('button', { name: 'Start recording' })).toBeEnabled()
+  })
+
+  it('releases preview audio and its Object URL even when play settles after changing groups', async () => {
+    const user = await recordToReady()
+    let finish!: () => void
+    audio[0].play.mockImplementationOnce(() => new Promise<void>((done) => { finish = () => { audio[0].paused = false; done() } }))
+    await user.click(screen.getByRole('button', { name: 'Play preview' }))
+    changeGroup('group-b')
+    expect(audio[0].removeEventListener).toHaveBeenCalledTimes(4)
+    expect(recorder.revokeObjectURL).toHaveBeenCalledWith('blob:recording-1')
+    await act(async () => finish())
+    expect(audio[0].paused).toBe(true)
+    expect(audio[0].src).toBe('')
+    expect(screen.queryByRole('button', { name: 'Play preview' })).not.toBeInTheDocument()
+  })
+
+  it('cancels the old upload and discards progress, completion and recording on a group change', async () => {
+    const user = await recordToReady()
+    await user.click(screen.getByRole('button', { name: 'Upload' }))
+    const old = tasks[0]
+    changeGroup('group-b')
+    expect(old.cancel).toHaveBeenCalledTimes(1)
+    expect(old.unsubscribe).toHaveBeenCalled()
+    await act(async () => { old.on.mock.calls[0][1](old.snapshot); old.on.mock.calls[0][3]() })
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Upload complete/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Uploaded' })).not.toBeInTheDocument()
+    await waitFor(() => expect(getDoc).toHaveBeenCalledTimes(2))
+    await user.click(screen.getByRole('button', { name: 'Start recording' }))
+    await user.click(screen.getByRole('button', { name: 'Stop recording' }))
+    expect(screen.getByRole('button', { name: 'Upload' })).toBeEnabled()
+  })
+
+  it('clears uploaded status after a group change', async () => {
+    const user = await recordToReady()
+    await user.click(screen.getByRole('button', { name: 'Upload' }))
+    await finishUpload()
+    expect(screen.getByRole('button', { name: 'Uploaded' })).toBeDisabled()
+    changeGroup('group-b')
+    expect(screen.queryByRole('button', { name: 'Uploaded' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start recording' })).toBeInTheDocument()
+  })
+
+  it('releases a player on pagehide and revalidates the group on cached-page restore', async () => {
+    registerAudio('group-a')
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: 'Play group-a.wav' }))
+    await waitFor(() => expect(audio[0].play).toHaveBeenCalledTimes(1))
+    act(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })))
+    expect(audio[0].src).toBe('')
+    expect(audio[0].removeEventListener).toHaveBeenCalledTimes(7)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Play group-a.wav' })).not.toBeInTheDocument()
+    act(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })))
+    await screen.findByRole('button', { name: 'Play group-a.wav' })
+    expect(getDoc).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(audio).toHaveLength(1)
+  })
+})
+
+
+it('clears a canceled upload state on pagehide and supports a fresh request after returning', async () => {
+  const recording = { blob: new Blob(['audio'], { type: 'audio/webm' }), url: 'blob:test', mimeType: 'audio/webm' }
+  const { result } = renderHook(() => useAudioUpload(recording))
+  act(() => result.current.upload())
+  expect(result.current.status).toBe('uploading')
+  await act(async () => window.dispatchEvent(new Event('pagehide')))
+  expect(tasks[0].cancel).toHaveBeenCalledTimes(1)
+  expect(result.current.status).toBe('idle')
+  expect(result.current.progress).toBe(0)
+  act(() => result.current.upload())
+  expect(tasks).toHaveLength(2)
+  await finishUpload(1)
+  expect(result.current.status).toBe('success')
 })

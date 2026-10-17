@@ -228,3 +228,37 @@ it('removes the previous group list and player when the group changes', async ()
   expect(await screen.findByText(/No recordings yet/)).toBeInTheDocument()
   expect(listAudioFiles).toHaveBeenLastCalledWith('group-b')
 })
+
+it('releases audio and listeners synchronously on pagehide before unmount', async () => {
+  const { unmount } = renderPlayer()
+  const audio = await waitForPlayback()
+  act(() => window.dispatchEvent(new Event('pagehide')))
+  expect(audio.src).toBe('')
+  expect(audio.pause).toHaveBeenCalledTimes(1)
+  expect(audio.removeEventListener).toHaveBeenCalledTimes(7)
+  unmount()
+  expect(audio.pause).toHaveBeenCalledTimes(1)
+  expect(audio.removeEventListener).toHaveBeenCalledTimes(7)
+})
+
+it('does not play a download URL that resolves after pagehide', async () => {
+  let resolve!: (value: string) => void
+  vi.mocked(getAudioDownloadUrl).mockReturnValueOnce(new Promise((done) => { resolve = done }))
+  renderPlayer()
+  act(() => window.dispatchEvent(new Event('pagehide')))
+  await act(async () => resolve('https://audio.test/late.wav'))
+  expect(instances[0].play).not.toHaveBeenCalled()
+  expect(instances[0].src).toBe('')
+})
+
+it('pauses a delayed play operation that settles after the modal unmounts', async () => {
+  const { unmount } = renderPlayer()
+  const audio = instances[0]
+  let resolve!: () => void
+  audio.play.mockImplementationOnce(() => new Promise<void>((done) => { resolve = () => { audio.paused = false; done() } }))
+  await waitFor(() => expect(audio.play).toHaveBeenCalledTimes(1))
+  unmount()
+  await act(async () => resolve())
+  expect(audio.paused).toBe(true)
+  expect(audio.src).toBe('')
+})

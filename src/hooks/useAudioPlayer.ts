@@ -33,6 +33,7 @@ export function useAudioPlayer(storagePath: string) {
       try {
         if (audio.ended || (audio.duration > 0 && audio.currentTime >= audio.duration)) audio.currentTime = 0
         await audio.play()
+        if (disposed) { audio.pause(); return }
         if (!disposed && request === playRequest) {
           setState((previous) => ({ ...previous, isPlaying: !audio.paused, isStarting: false }))
         }
@@ -108,7 +109,8 @@ export function useAudioPlayer(storagePath: string) {
         message: 'Unable to load the audio file. Check Storage permissions and confirm the file still exists.' }))
     })
 
-    return () => {
+    function dispose() {
+      if (disposed) return
       disposed = true
       ++playRequest
       controls.current = null
@@ -116,6 +118,11 @@ export function useAudioPlayer(storagePath: string) {
       audio.pause()
       audio.removeAttribute('src')
       audio.load()
+    }
+    window.addEventListener('pagehide', dispose)
+    return () => {
+      window.removeEventListener('pagehide', dispose)
+      dispose()
     }
   }, [storagePath])
 

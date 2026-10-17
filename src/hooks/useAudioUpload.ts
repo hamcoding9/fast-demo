@@ -34,8 +34,12 @@ export function useAudioUpload(recording: RecordedAudio | null, enabled = true) 
       active.current = null
       upload.operation?.cancel()
     }
-    window.addEventListener('pagehide', cancel)
-    return () => { window.removeEventListener('pagehide', cancel); cancel() }
+    function onPageHide() {
+      cancel()
+      setState(initialState)
+    }
+    window.addEventListener('pagehide', onPageHide)
+    return () => { window.removeEventListener('pagehide', onPageHide); cancel() }
   }, [blob, enabled])
 
   function upload() {
