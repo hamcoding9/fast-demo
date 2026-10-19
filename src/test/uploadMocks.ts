@@ -20,7 +20,7 @@ export class MockUploadTask {
     this.snapshot = {
       bytesTransferred: 0, totalBytes: blob.size, state: 'running', ref: reference,
       metadata: { name: reference.name || reference.fullPath.split('/').pop(), fullPath: reference.fullPath,
-        timeCreated: '2026-10-11T18:00:00Z', contentType: metadata.contentType, size: blob.size },
+        timeCreated: '2026-10-11T18:00:00Z', contentType: metadata.contentType, customMetadata: metadata.customMetadata, size: blob.size },
     } as UploadTaskSnapshot
   }
   sdkTask() { return this as unknown as UploadTask }

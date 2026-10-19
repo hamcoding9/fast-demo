@@ -7,7 +7,7 @@ A responsive audio demo for recording, previewing, uploading, and listening to a
 - Group audio libraries accessed through `/?groupId=group-a`.
 - Audio player with play/pause, seeking, and playback time.
 - Microphone recording with a timer, local preview, and re-recording.
-- Storage uploads with progress and duplicate prevention.
+- Group uploads with progress, duplicate prevention, and Firestore metadata registration.
 - Mobile-friendly layout, fixed bottom navigation, and keyboard support.
 
 ## Quick Start
@@ -48,7 +48,7 @@ audios/audio-demo
   uploadedAt: <Firestore timestamp>
 ```
 
-For a sample library, upload an audio file to Storage and register its metadata in `audios`. Use the actual file path, MIME type, size in bytes, and upload timestamp. The Play tab displays the group's `ready` documents, newest first.
+Record-tab uploads save files to `recordings/{groupId}/{audioId}.{extension}` and register `audios/{audioId}` automatically, changing `pending` to `ready` with a server timestamp. The Play tab displays the group's `ready` documents, newest first. To register a sample file manually, use its actual Storage path, MIME type, byte size, and upload timestamp.
 
 Using an authenticated Firebase CLI, deploy the configured index and wait for it to become enabled:
 

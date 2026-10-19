@@ -8,9 +8,10 @@ const labels: Record<RecordingStatus, string> = {
   ready: 'Recording complete', error: 'Recording error', unsupported: 'Recording unavailable',
 }
 
-export function AudioRecorder({ uploadEnabled = true }: { uploadEnabled?: boolean }) {
+export function AudioRecorder({ groupId }: { groupId: string | null }) {
+  const uploadEnabled = groupId !== null
   const recorder = useAudioRecorder()
-  const upload = useAudioUpload(recorder.recording, uploadEnabled)
+  const upload = useAudioUpload(recorder.recording, groupId)
   const time = `${Math.floor(recorder.seconds / 60).toString().padStart(2, '0')}:${(recorder.seconds % 60).toString().padStart(2, '0')}`
   return (
     <section aria-labelledby="recorder-title" className="mx-auto flex max-w-2xl flex-col items-center rounded-3xl border border-slate-200 bg-white px-5 py-10 text-center sm:py-14">

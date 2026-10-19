@@ -8,7 +8,7 @@ import { listAudioFiles } from './services/audios'
 import App from './App'
 
 vi.mock('./services/audios', async (importOriginal) => ({ ...await importOriginal<typeof import('./services/audios')>(), listAudioFiles: vi.fn() }))
-vi.mock('./services/audioStorage', () => ({ getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
+vi.mock('./services/audioStorage', async (importOriginal) => ({ ...await importOriginal<typeof import('./services/audioStorage')>(), getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
 vi.mock('./services/groups', async (importOriginal) => ({ ...await importOriginal<typeof import('./services/groups')>(), getGroup: vi.fn() }))
 beforeEach(() => {
   window.history.replaceState(null, '', '/?groupId=group-a')

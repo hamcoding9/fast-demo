@@ -9,7 +9,6 @@ import { RecordPage } from './pages/RecordPage'
 export default function App() {
   const { activePage, navigate } = useNavigation()
   const { state: groupState, retry, scopeKey } = useGroup()
-  const cloudEnabled = groupState.status === 'ready'
   return (
     <div className="app-shell">
       <a href="#main-content" className="skip-link">Skip to main content</a>
@@ -22,7 +21,7 @@ export default function App() {
       </header>
       <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-5xl py-10 sm:py-14">
         <GroupStatus state={groupState} onRetry={retry} />
-        <div key={scopeKey}>{activePage === 'play' ? <PlayPage groupId={groupState.status === 'ready' ? groupState.group.id : null} /> : <RecordPage cloudEnabled={cloudEnabled} />}</div>
+        <div key={scopeKey}>{activePage === 'play' ? <PlayPage groupId={groupState.status === 'ready' ? groupState.group.id : null} /> : <RecordPage groupId={groupState.status === 'ready' ? groupState.group.id : null} />}</div>
       </main>
       <BottomNavigation activePage={activePage} onNavigate={navigate} />
     </div>

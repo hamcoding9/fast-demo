@@ -1,9 +1,9 @@
-import { collection, getDocs, query, where, orderBy, Timestamp, doc, getDoc, getFirestore, type Firestore, type DocumentSnapshot, type QuerySnapshot } from 'firebase/firestore'
+import { collection, getDocs, query, where, orderBy, Timestamp, serverTimestamp, setDoc, doc, getDoc, getFirestore, type Firestore, type DocumentSnapshot, type QuerySnapshot } from 'firebase/firestore'
 import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getApps, initializeApp, type FirebaseApp } from 'firebase/app'
-import { getDownloadURL, getStorage, ref, uploadBytesResumable, type FirebaseStorage, type FullMetadata, type StorageReference } from 'firebase/storage'
+import { getDownloadURL, getMetadata, getStorage, ref, uploadBytesResumable, type FirebaseStorage, type FullMetadata, type StorageReference } from 'firebase/storage'
 import App from './App'
 import { useAudioUpload } from './hooks/useAudioUpload'
 import { installMediaMocks, type MockAudio } from './test/mediaMocks'
@@ -11,9 +11,9 @@ import { installRecorderMocks, makeMockStream } from './test/recorderMocks'
 import { MockUploadTask } from './test/uploadMocks'
 
 // Only platform/SDK boundaries are mocked; production services and hooks run.
-vi.mock('firebase/firestore', async (importOriginal) => ({ ...await importOriginal<typeof import('firebase/firestore')>(), collection: vi.fn(), getDocs: vi.fn(), query: vi.fn(), where: vi.fn(), orderBy: vi.fn(), getFirestore: vi.fn(), doc: vi.fn(), getDoc: vi.fn() }))
+vi.mock('firebase/firestore', async (importOriginal) => ({ ...await importOriginal<typeof import('firebase/firestore')>(), setDoc: vi.fn(), serverTimestamp: vi.fn(), collection: vi.fn(), getDocs: vi.fn(), query: vi.fn(), where: vi.fn(), orderBy: vi.fn(), getFirestore: vi.fn(), doc: vi.fn(), getDoc: vi.fn() }))
 vi.mock('firebase/app', () => ({ getApps: vi.fn(), initializeApp: vi.fn() }))
-vi.mock('firebase/storage', () => ({ getStorage: vi.fn(), ref: vi.fn(), getDownloadURL: vi.fn(), uploadBytesResumable: vi.fn() }))
+vi.mock('firebase/storage', () => ({ getMetadata: vi.fn(), getStorage: vi.fn(), ref: vi.fn(), getDownloadURL: vi.fn(), uploadBytesResumable: vi.fn() }))
 let recorder: ReturnType<typeof installRecorderMocks>
 let audio: MockAudio[]
 let tasks: MockUploadTask[]
@@ -24,13 +24,27 @@ beforeEach(() => {
   vi.resetAllMocks()
   window.history.replaceState(null, '', '/?groupId=group-a')
   vi.mocked(getFirestore).mockReturnValue({} as Firestore)
-  vi.mocked(doc).mockReturnValue({} as ReturnType<typeof doc>)
+  let nextAudioId = 0
+  vi.mocked(doc).mockImplementation((...args: unknown[]) => ({ id: typeof args[2] === 'string' ? args[2] : `audio-${++nextAudioId}` }) as ReturnType<typeof doc>)
   vi.mocked(getDoc).mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group A', isActive: true }) } as unknown as DocumentSnapshot)
   recorder = installRecorderMocks()
   audio = installMediaMocks()
   tasks = []
   stored = new Map()
   documents = []
+  vi.mocked(serverTimestamp).mockReturnValue({} as ReturnType<typeof serverTimestamp>)
+  vi.mocked(setDoc).mockImplementation(async (reference, value, options) => {
+    const previous = documents.find((entry) => entry.id === reference.id)
+    const data = { ...(options && previous ? previous.data() : {}), ...value as Record<string, unknown>,
+      uploadedAt: Timestamp.fromDate(new Date('2026-10-19T12:00:00Z')) }
+    if (previous) documents.splice(documents.indexOf(previous), 1)
+    documents.push({ id: reference.id, data: () => data })
+  })
+  vi.mocked(getMetadata).mockImplementation(async (reference) => {
+    const metadata = stored.get(reference.fullPath)
+    if (!metadata) throw Object.assign(new Error('not found'), { code: 'storage/object-not-found' })
+    return metadata
+  })
   vi.mocked(collection).mockReturnValue({} as ReturnType<typeof collection>)
   vi.mocked(query).mockReturnValue({} as ReturnType<typeof query>)
   vi.mocked(where).mockReturnValue({} as ReturnType<typeof where>)
@@ -66,6 +80,7 @@ async function recordToReady() {
   return user
 }
 async function finishUpload(index = 0) {
+  await waitFor(() => expect(tasks.length).toBeGreaterThan(index))
   await act(async () => {
     const task = tasks[index]
     stored.set(task.snapshot.ref.fullPath, task.snapshot.metadata)
@@ -73,8 +88,8 @@ async function finishUpload(index = 0) {
   })
 }
 
-describe('Recording, legacy upload and Firestore playback integration', () => {
-  it('records, previews and uploads without synthesizing Firestore metadata before Step 4', async () => {
+describe('Group recording, upload and Firestore playback integration', () => {
+  it('records, previews, uploads metadata and refreshes the current group library for playback', async () => {
     const user = await recordToReady()
     await user.click(screen.getByRole('button', { name: 'Play preview' }))
     expect(audio[0].play).toHaveBeenCalled()
@@ -90,8 +105,12 @@ describe('Recording, legacy upload and Firestore playback integration', () => {
     await user.click(screen.getByRole('button', { name: 'Play' }))
     expect(audio[0].pause).toHaveBeenCalled()
     expect(recorder.revokeObjectURL).toHaveBeenCalled()
-    expect(await screen.findByText(/No recordings yet/)).toBeInTheDocument()
-    expect(documents).toHaveLength(0)
+    const fileName = tasks[0].snapshot.ref.name
+    await user.click(await screen.findByRole('button', { name: `Play ${fileName}` }))
+    await waitFor(() => expect(audio[1].play).toHaveBeenCalledTimes(1))
+    expect(audio[1].src).toBe(`https://audio.test/${tasks[0].snapshot.ref.fullPath}`)
+    expect(documents).toHaveLength(1)
+    expect(documents[0].data()).toMatchObject({ groupId: 'group-a', status: 'ready' })
     expect(stored.size).toBe(1)
     expect(getDocs).toHaveBeenCalledTimes(2)
   })
@@ -125,7 +144,7 @@ describe('Recording, legacy upload and Firestore playback integration', () => {
   it('prevents repeated uploads while pending and after success, then allows a new recording', async () => {
     const user = await recordToReady()
     await user.dblClick(screen.getByRole('button', { name: 'Upload' }))
-    expect(uploadBytesResumable).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(uploadBytesResumable).toHaveBeenCalledTimes(1))
     await finishUpload()
     await user.click(screen.getByRole('button', { name: 'Uploaded' }))
     expect(uploadBytesResumable).toHaveBeenCalledTimes(1)
@@ -159,9 +178,9 @@ describe('Recording, legacy upload and Firestore playback integration', () => {
 
   it('prevents duplicate requests before React rerenders and after completion', async () => {
     const recording = { blob: new Blob(['audio'], { type: 'audio/webm' }), url: 'blob:test', mimeType: 'audio/webm' }
-    const { result } = renderHook(() => useAudioUpload(recording))
+    const { result } = renderHook(() => useAudioUpload(recording, 'group-a'))
     act(() => { result.current.upload(); result.current.upload() })
-    expect(uploadBytesResumable).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(uploadBytesResumable).toHaveBeenCalledTimes(1))
     await finishUpload()
     act(() => result.current.upload())
     expect(uploadBytesResumable).toHaveBeenCalledTimes(1)
@@ -356,15 +375,63 @@ describe('group and page lifecycle integration with mocked Firebase/media APIs',
 
 it('clears a canceled upload state on pagehide and supports a fresh request after returning', async () => {
   const recording = { blob: new Blob(['audio'], { type: 'audio/webm' }), url: 'blob:test', mimeType: 'audio/webm' }
-  const { result } = renderHook(() => useAudioUpload(recording))
+  const { result } = renderHook(() => useAudioUpload(recording, 'group-a'))
   act(() => result.current.upload())
   expect(result.current.status).toBe('uploading')
+  await waitFor(() => expect(tasks).toHaveLength(1))
   await act(async () => window.dispatchEvent(new Event('pagehide')))
   expect(tasks[0].cancel).toHaveBeenCalledTimes(1)
   expect(result.current.status).toBe('idle')
   expect(result.current.progress).toBe(0)
   act(() => result.current.upload())
-  expect(tasks).toHaveLength(2)
+  await waitFor(() => expect(tasks).toHaveLength(2))
   await finishUpload(1)
   expect(result.current.status).toBe('success')
+})
+
+it('shows finalization failure without success and retries metadata without resending the audio', async () => {
+  const user = await recordToReady()
+  const write = vi.mocked(setDoc).getMockImplementation()!
+  vi.mocked(setDoc).mockImplementationOnce(write).mockRejectedValueOnce(new Error('permission-denied'))
+  await user.click(screen.getByRole('button', { name: 'Upload' }))
+  await finishUpload()
+  expect(await screen.findByRole('alert')).toHaveTextContent('could not be finalized')
+  expect(screen.queryByText(/Upload complete/)).not.toBeInTheDocument()
+  expect(documents[0].data().status).toBe('pending')
+  expect(screen.getByRole('button', { name: 'Upload' })).toBeEnabled()
+  await user.click(screen.getByRole('button', { name: 'Upload' }))
+  expect(await screen.findByRole('button', { name: 'Uploaded' })).toBeDisabled()
+  expect(uploadBytesResumable).toHaveBeenCalledTimes(1)
+  expect(documents).toHaveLength(1)
+  expect(documents[0].data().status).toBe('ready')
+  await user.click(screen.getByRole('button', { name: 'Play' }))
+  expect(await screen.findByRole('button', { name: `Play ${tasks[0].snapshot.ref.name}` })).toBeInTheDocument()
+})
+
+it('keeps Upload in progress at 100% until Firestore acknowledges ready', async () => {
+  const user = await recordToReady()
+  const write = vi.mocked(setDoc).getMockImplementation()!
+  let finish!: () => void
+  vi.mocked(setDoc).mockImplementationOnce(write).mockImplementationOnce((...args) => new Promise<void>((done) => {
+    finish = () => { void write(...args).then(done) }
+  }))
+  await user.click(screen.getByRole('button', { name: 'Upload' }))
+  await finishUpload()
+  expect(screen.getByRole('button', { name: 'Uploading' })).toBeDisabled()
+  expect(screen.getByRole('progressbar')).toHaveAttribute('value', '100')
+  expect(documents[0].data().status).toBe('pending')
+  expect(screen.queryByText(/Upload complete/)).not.toBeInTheDocument()
+  await act(async () => finish())
+  expect(await screen.findByRole('button', { name: 'Uploaded' })).toBeDisabled()
+})
+
+it('shows preparation failure without sending the file and permits retry', async () => {
+  const user = await recordToReady()
+  vi.mocked(setDoc).mockRejectedValueOnce(new Error('permission-denied'))
+  await user.click(screen.getByRole('button', { name: 'Upload' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Unable to prepare the audio library entry')
+  expect(uploadBytesResumable).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button', { name: 'Upload' }))
+  await finishUpload()
+  expect(await screen.findByRole('button', { name: 'Uploaded' })).toBeDisabled()
 })

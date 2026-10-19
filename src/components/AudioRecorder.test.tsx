@@ -11,7 +11,7 @@ import { installRecorderMocks } from '../test/recorderMocks'
 import { AudioRecorder } from './AudioRecorder'
 
 vi.mock('../services/audios', async (importOriginal) => ({ ...await importOriginal<typeof import('../services/audios')>(), listAudioFiles: vi.fn() }))
-vi.mock('../services/audioStorage', () => ({ getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
+vi.mock('../services/audioStorage', async (importOriginal) => ({ ...await importOriginal<typeof import('../services/audioStorage')>(), getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
 let mocks: ReturnType<typeof installRecorderMocks>
 let previews: MockAudio[]
 vi.mock('../services/groups', async (importOriginal) => ({ ...await importOriginal<typeof import('../services/groups')>(), getGroup: vi.fn() }))
@@ -32,7 +32,7 @@ afterEach(() => {
 describe('recorder UI', () => {
   it('shows recording status, stop, preview, re-record and enabled upload controls', async () => {
     const user = userEvent.setup()
-    render(<AudioRecorder />)
+    render(<AudioRecorder groupId="group-a" />)
     expect(screen.getByRole('status')).toHaveTextContent('Ready to record')
     expect(screen.getByRole('timer', { name: 'Recording time' })).toHaveTextContent('00:00')
     await user.click(screen.getByRole('button', { name: 'Start recording' }))
@@ -53,7 +53,7 @@ describe('recorder UI', () => {
   it('displays a permission error and keeps retry available', async () => {
     const user = userEvent.setup()
     mocks.getUserMedia.mockRejectedValueOnce(new DOMException('Denied', 'NotAllowedError'))
-    render(<AudioRecorder />)
+    render(<AudioRecorder groupId="group-a" />)
     await user.click(screen.getByRole('button', { name: 'Start recording' }))
     expect(screen.getByRole('alert')).toHaveTextContent('Microphone access was denied')
     expect(screen.getByRole('button', { name: 'Start recording' })).toBeEnabled()
@@ -61,7 +61,7 @@ describe('recorder UI', () => {
 
   it('displays unsupported guidance and disables start', () => {
     vi.stubGlobal('MediaRecorder', undefined)
-    render(<AudioRecorder />)
+    render(<AudioRecorder groupId="group-a" />)
     expect(screen.getByRole('alert')).toHaveTextContent('HTTPS or localhost')
     expect(screen.getByRole('button', { name: 'Start recording' })).toBeDisabled()
   })
@@ -69,7 +69,7 @@ describe('recorder UI', () => {
   it('disables start while microphone permission is pending', async () => {
     const user = userEvent.setup()
     mocks.getUserMedia.mockReturnValue(new Promise(() => {}))
-    render(<AudioRecorder />)
+    render(<AudioRecorder groupId="group-a" />)
     await user.click(screen.getByRole('button', { name: 'Start recording' }))
     expect(screen.getByRole('status')).toHaveTextContent('Requesting microphone access')
     expect(screen.getByRole('button', { name: 'Start recording' })).toBeDisabled()
@@ -125,7 +125,7 @@ it('keeps local recording and preview available but blocks upload without a veri
 it('guards upload calls at the hook boundary when disabled', () => {
   vi.mocked(uploadAudioRecording).mockClear()
   const recording = { blob: new Blob(['audio'], { type: 'audio/webm' }), url: 'blob:test', mimeType: 'audio/webm' }
-  const { result } = renderHook(() => useAudioUpload(recording, false))
+  const { result } = renderHook(() => useAudioUpload(recording, null))
   act(() => result.current.upload())
   expect(uploadAudioRecording).not.toHaveBeenCalled()
   expect(result.current.status).toBe('idle')

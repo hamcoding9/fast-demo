@@ -8,7 +8,7 @@ import type { AudioFile } from '../types/audio'
 import { AudioLibrary } from './AudioLibrary'
 
 vi.mock('../services/audios', async (importOriginal) => ({ ...await importOriginal<typeof import('../services/audios')>(), listAudioFiles: vi.fn() }))
-vi.mock('../services/audioStorage', () => ({ getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
+vi.mock('../services/audioStorage', async (importOriginal) => ({ ...await importOriginal<typeof import('../services/audioStorage')>(), getAudioDownloadUrl: vi.fn(), uploadAudioRecording: vi.fn() }))
 const audio: AudioFile = audioFixture({ id: 'doc-memo.wav', name: 'memo.wav', storagePath: 'recordings/group-a/memo.wav', uploadedAt: '2026-10-11T12:00:00Z' })
 beforeEach(() => {
   vi.mocked(listAudioFiles).mockReset()

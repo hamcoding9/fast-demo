@@ -17,9 +17,3 @@ export function recordingUploadFormat(blob: Blob) {
   if (!extension) throw new AudioUploadValidationError('This recording format cannot be uploaded. Record again in a supported audio format.')
   return { contentType, extension }
 }
-
-export function uniqueRecordingName(extension: string) {
-  const id = typeof crypto.randomUUID === 'function' ? crypto.randomUUID()
-    : `${Date.now()}-${Array.from(crypto.getRandomValues(new Uint32Array(2))).join('-')}`
-  return `recording-${id}.${extension}`
-}
